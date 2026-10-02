@@ -3,12 +3,10 @@ import { join } from "node:path";
 
 import { YamlExplorer } from "./lazy";
 import type { ExplorerFile, Note } from "./yaml-explorer";
-import type { StackId } from "./stack";
 
-const DIR: Record<StackId, string> = { gin: "gin-mongo", echo: "echo-sql" };
-
-function read(stack: StackId, rel: string) {
-  return readFileSync(join(process.cwd(), "recordings", DIR[stack], rel), "utf8");
+/** Reads one of the files Keploy generated in my run (recordings/gin-mongo). */
+function read(rel: string) {
+  return readFileSync(join(process.cwd(), "recordings", "gin-mongo", rel), "utf8");
 }
 
 /** Picks one YAML document out of a multi-document mocks file. */
@@ -22,7 +20,7 @@ const TEST_NOTES: Note[] = [
   {
     match: "^kind: Http",
     title: "A test case",
-    body: "Each request you sent became one file like this. Mocks use other kinds, such as Mongo or PostgresV3.",
+    body: "Each request you sent became one file like this. Mocks use other kinds; the MongoDB mocks here are `kind: Mongo`.",
   },
   {
     match: "^  req:",
@@ -67,39 +65,25 @@ const KEPLOY_YML_NOTES: Note[] = [
   },
 ];
 
-function filesFor(stack: StackId): ExplorerFile[] {
-  const mocks = read(stack, "keploy/test-set-0/mocks.yaml");
-  const mock =
-    stack === "gin"
-      ? pickMock(mocks, '"update":"url-shortener"')
-      : pickMock(mocks, "INSERT INTO url_map");
-  const mockNotes: Note[] =
-    stack === "gin"
-      ? [
-          { match: "^kind: Mongo", title: "A MongoDB mock", body: "One database call your app made while recording: a query and the answer MongoDB gave." },
-          { match: "^    requests:", title: "What the app sent", body: "The upsert of the short link, decoded from the MongoDB wire protocol." },
-          { match: "^    responses:", title: "What MongoDB answered", body: "During replay, Keploy sends this back when the app makes the same call, so MongoDB can stay off." },
-          { match: "^noise:", title: "Ignored request fields", body: "The created and updated timestamps differ on every run, so Keploy doesn't use them to match the call." },
-        ]
-      : [
-          { match: "^kind: PostgresV3", title: "A PostgreSQL mock", body: "One database call your app made while recording: a query and the answer Postgres gave." },
-          { match: "sqlNormalized:", title: "The SQL your app ran", body: "Keploy matches replayed queries on this normalized statement." },
-          { match: "bindValues:", title: "Query parameters", body: "The values bound to $1…$4, stored as base64." },
-          { match: "^            response:", title: "What Postgres answered", body: "During replay, Keploy returns this when the app runs the same INSERT, so Postgres can stay off." },
-        ];
+function files(): ExplorerFile[] {
+  const mocks = read("keploy/test-set-0/mocks.yaml");
+  const mock = pickMock(mocks, '"update":"url-shortener"');
+  const mockNotes: Note[] = [
+    { match: "^kind: Mongo", title: "A MongoDB mock", body: "One database call your app made while recording: a query and the answer MongoDB gave." },
+    { match: "^    requests:", title: "What the app sent", body: "The upsert of the short link, decoded from the MongoDB wire protocol." },
+    { match: "^    responses:", title: "What MongoDB answered", body: "During replay, Keploy sends this back when the app makes the same call, so MongoDB can stay off." },
+    { match: "^noise:", title: "Ignored request fields", body: "The created and updated timestamps differ on every run, so Keploy doesn't use them to match the call." },
+  ];
 
   return [
     {
       path: "keploy/test-set-0/tests/post-url-1.yaml",
-      content: read(stack, "keploy/test-set-0/tests/post-url-1.yaml"),
+      content: read("keploy/test-set-0/tests/post-url-1.yaml"),
       notes: TEST_NOTES,
     },
     {
-      path: `keploy/test-set-0/tests/${stack === "gin" ? "get-7fvpssfg-1" : "get-4kepjktt-1"}.yaml`,
-      content: read(
-        stack,
-        `keploy/test-set-0/tests/${stack === "gin" ? "get-7fvpssfg-1" : "get-4kepjktt-1"}.yaml`,
-      ),
+      path: "keploy/test-set-0/tests/get-7fvpssfg-1.yaml",
+      content: read("keploy/test-set-0/tests/get-7fvpssfg-1.yaml"),
       notes: TEST_NOTES.filter((n) => n.match !== "^curl:"),
     },
     {
@@ -110,12 +94,12 @@ function filesFor(stack: StackId): ExplorerFile[] {
     },
     {
       path: "keploy/test-set-0/config.yaml",
-      content: read(stack, "keploy/test-set-0/config.yaml"),
+      content: read("keploy/test-set-0/config.yaml"),
       notes: CONFIG_NOTES,
     },
     {
       path: "keploy.yml",
-      content: read(stack, "keploy.yml")
+      content: read("keploy.yml")
         .split("\n")
         .filter((l) => l.trim() && !l.trim().startsWith("#"))
         .join("\n"),
@@ -125,6 +109,6 @@ function filesFor(stack: StackId): ExplorerFile[] {
   ];
 }
 
-export function KeployFiles({ stack }: { stack: StackId }) {
-  return <YamlExplorer files={filesFor(stack)} />;
+export function KeployFiles() {
+  return <YamlExplorer files={files()} />;
 }

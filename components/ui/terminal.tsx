@@ -267,6 +267,8 @@ interface TerminalProps {
   copyText?: string;
   /** Max body height (CSS length). Body scrolls beyond it. */
   maxHeight?: string;
+  /** Fixed body height, so the window is full size before any output. */
+  height?: string;
   /** Accessible name for the output log. */
   label?: string;
   /** Rendered at the bottom of the body (e.g. an input row). */
@@ -275,6 +277,10 @@ interface TerminalProps {
   scrollKey?: unknown;
   /** Shown under the body, e.g. run status. */
   statusBar?: React.ReactNode;
+  /** Extra controls in the title bar (e.g. play/pause). */
+  controls?: React.ReactNode;
+  /** Change this to scroll to the run's result ([data-fail], else the last [data-summary]). */
+  anchorKey?: number;
 }
 
 function ModeBadge({ mode }: { mode: Exclude<TerminalMode, null> }) {
@@ -330,10 +336,13 @@ export const Terminal = ({
   mode = null,
   copyText,
   maxHeight = "26rem",
+  height,
   label = "Terminal output",
   footer,
   scrollKey,
   statusBar,
+  anchorKey,
+  controls,
 }: TerminalProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -401,6 +410,17 @@ export const Terminal = ({
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [activeIndex, scrollKey]);
 
+  // When a run ends, show its result rather than the shutdown logs after it.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || !anchorKey) return;
+    const summaries = el.querySelectorAll<HTMLElement>("[data-summary]");
+    const target = el.querySelector<HTMLElement>("[data-fail]") ?? summaries[summaries.length - 1];
+    if (!target) return;
+    pinned.current = false;
+    el.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
+  }, [anchorKey]);
+
   const wrappedChildren = useMemo(() => {
     if (!sequence) return children;
     return Children.toArray(children).map((child, index) => (
@@ -414,7 +434,7 @@ export const Terminal = ({
     <div
       ref={containerRef}
       className={cn(
-        "z-0 w-full overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_40px_-24px_rgba(8,10,14,0.55)]",
+        "z-0 w-full min-w-0 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_40px_-24px_rgba(8,10,14,0.55)]",
         className,
       )}
     >
@@ -431,6 +451,7 @@ export const Terminal = ({
         )}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {mode && <ModeBadge mode={mode} />}
+          {controls}
           {copyText && <CopyButton text={copyText} />}
         </span>
       </div>
@@ -441,10 +462,15 @@ export const Terminal = ({
         aria-label={label}
         aria-busy={!done}
         className={cn(
-          "overflow-auto px-4 py-3.5 font-term text-[12.5px] leading-[1.6]",
+          "relative overflow-auto px-4 py-3.5 font-term text-[12.5px] leading-[1.6]",
           bodyClassName,
         )}
-        style={{ maxHeight }}
+        // Clicking anywhere in the window puts the cursor in its prompt.
+        onMouseUp={(e) => {
+          if (window.getSelection()?.toString()) return;
+          e.currentTarget.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
+        }}
+        style={height ? { height } : { maxHeight }}
         onScroll={(e) => {
           const el = e.currentTarget;
           if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) pinned.current = true;

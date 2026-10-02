@@ -1,0 +1,15 @@
+# keploy record as a normal (non-root) user, 2026-10-02, Keploy 3.8.58, Ubuntu 22.04.
+# Keploy re-runs itself with sudo and asks for the password:
+🐰 Keploy: 2026-10-02T21:44:58.07817134Z 	INFO	Starting Keploy	{"version": "3.8.58", "apiServerURL": "https://api.keploy.io", "inDocker": false}
+🐰 Keploy: 2026-10-02T21:45:00.489193466Z 	INFO	agent replay posture resolved	{"replaying": false, "cmd": "record", "mode": "", "daemonset": false}
+[sudo] password for dev: 
+
+# With sudo allowed, the same user recorded post-url-1; the files it wrote are owned by that user, not root:
+-rw-r--r-- 1 dev dev 8133 /home/dev2/gin/keploy/test-set-0/mocks.yaml
+
+/home/dev2/gin/keploy/test-set-0/tests/:
+total 4
+-rw-r--r-- 1 dev dev 1186 post-url-1.yaml
+
+# First `go run` for a new user downloads modules for over two minutes before the app listens;
+# `go mod download` beforehand took 25 s and then recording worked.

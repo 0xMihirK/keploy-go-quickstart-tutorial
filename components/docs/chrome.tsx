@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
 import { getBusy, subscribeBusy } from "@/lib/runs";
 import { cn } from "@/lib/utils";
-import { SlideMenu, Stepper } from "./slides";
-import { StackSwitch } from "./stack";
+import { DeckProgress, SlideMenu, Stepper } from "./slides";
 
 function Reel({ cx, color, spin }: { cx: number; color: string; spin: boolean }) {
   return (
@@ -49,10 +49,44 @@ export function ThemeToggle() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- standard next-themes mount guard
   useEffect(() => setMounted(true), []);
   const dark = mounted && resolvedTheme === "dark";
+
+  // The new theme grows as a circle from the button (View Transitions API).
+  const toggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const next = dark ? "light" : "dark";
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
+    };
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!doc.startViewTransition || reduce) {
+      setTheme(next);
+      return;
+    }
+    const root = document.documentElement;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.dataset.vt = "theme";
+    const t = doc.startViewTransition(() => {
+      flushSync(() => setTheme(next));
+      root.classList.toggle("dark", next === "dark");
+      root.style.colorScheme = next;
+    });
+    t.ready.then(() => {
+      root.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 520, easing: "cubic-bezier(0.16, 1, 0.3, 1)", pseudoElement: "::view-transition-new(root)" },
+      );
+    });
+    t.finished.finally(() => {
+      delete root.dataset.vt;
+    });
+  };
+
   return (
     <button
       type="button"
-      onClick={() => setTheme(dark ? "light" : "dark")}
+      onClick={toggle}
       aria-label={mounted ? `Switch to ${dark ? "light" : "dark"} theme` : "Toggle theme"}
       className="grid size-8 place-items-center rounded-md text-graphite transition-colors hover:bg-muted hover:text-ink"
     >
@@ -64,21 +98,24 @@ export function ThemeToggle() {
 
 export function Header() {
   return (
-    <header className="z-40 shrink-0 border-b border-rule bg-paper">
-      <div className="mx-auto flex h-14 max-w-[84rem] items-center gap-2 px-4 sm:gap-3 sm:px-8">
-        <SlideMenu />
-        <span className="flex items-center gap-2 font-semibold tracking-[-0.01em] text-ink">
-          <Mark />
-          <span className="hidden lg:inline">Keploy + Go</span>
-        </span>
-        <div className="mx-auto hidden md:block">
+    <header className="z-40 shrink-0 bg-paper">
+      {/* Three columns: the stepper sits at the true centre whatever the sides hold. */}
+      <div className="mx-auto grid h-14 max-w-[84rem] grid-cols-[1fr_auto] items-center gap-3 px-4 sm:px-8 md:grid-cols-[1fr_auto_1fr]">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <SlideMenu />
+          <span className="flex items-center gap-2 font-semibold tracking-[-0.01em] text-ink">
+            <Mark />
+            <span className="hidden lg:inline">Keploy + Go</span>
+          </span>
+        </div>
+        <div className="hidden md:block">
           <Stepper />
         </div>
-        <div className="ml-auto flex items-center gap-1.5 md:ml-0">
-          <StackSwitch />
+        <div className="flex items-center justify-end gap-1.5">
           <ThemeToggle />
         </div>
       </div>
+      <DeckProgress />
     </header>
   );
 }

@@ -6,7 +6,6 @@ import { Pause, Play } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/reduced-motion";
-import { useStack, type StackId } from "./stack";
 
 type Mode = "record" | "replay";
 
@@ -44,16 +43,10 @@ const HOPS: Record<Mode, Hop[]> = {
   ],
 };
 
-const TAPE: Record<StackId, [string, string][]> = {
-  gin: [
-    ["tests/post-url-1.yaml", "POST /url → 200"],
-    ["mocks.yaml", "mongo update url-shortener → n: 1"],
-  ],
-  echo: [
-    ["tests/post-url-1.yaml", "POST /url → 200"],
-    ["mocks.yaml", "postgres INSERT INTO url_map → INSERT 0 1"],
-  ],
-};
+const TAPE: [string, string][] = [
+  ["tests/post-url-1.yaml", "POST /url → 200"],
+  ["mocks.yaml", "mongo update url-shortener → n: 1"],
+];
 
 const HOP_S = 1.05;
 const EASE = [0.45, 0, 0.2, 1] as const;
@@ -63,7 +56,6 @@ function hopDuration(h: Hop) {
 }
 
 export function RecordReplaySim({ className }: { className?: string }) {
-  const stack = useStack();
   const reduce = useReducedMotion();
   const [mode, setMode] = useState<Mode>("record");
   const [step, setStep] = useState(-1);
@@ -91,8 +83,8 @@ export function RecordReplaySim({ className }: { className?: string }) {
   const hop = shown >= 0 ? hops[shown] : null;
   const isRec = mode === "record";
   const color = isRec ? "var(--record)" : "var(--replay)";
-  const db = stack === "gin" ? "MongoDB" : "PostgreSQL";
-  const app = stack === "gin" ? "Gin app" : "Echo app";
+  const db = "MongoDB";
+  const app = "Gin app";
   // Tape rows written so far in record mode (row 0 starts on hop 0, row 1 on hop 2).
   const written = isRec ? ([1, 1, 2, 2][shown] ?? 0) : 2;
   const reading = !isRec && hop?.rise !== undefined ? hop.rise : !isRec && shown === 0 ? 0 : null;
@@ -232,7 +224,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
           {app}
         </text>
         <text x={(X.app + X.app2) / 2} y={Y + 16} textAnchor="middle" className="fill-graphite text-[12px]">
-          port {stack === "gin" ? "8080" : "8082"}
+          port 8080
         </text>
 
         {/* database */}
@@ -263,9 +255,9 @@ export function RecordReplaySim({ className }: { className?: string }) {
         {/* keploy taps */}
         {[X.proxyIn, X.proxyOut].map((x) => (
           <g key={x}>
-            <line x1={x} y1={Y + 15} x2={x} y2={TAPE_Y} stroke="var(--orange)" strokeOpacity="0.4" strokeDasharray="2 4" strokeWidth="1.25" />
-            <circle cx={x} cy={Y} r="15" fill="var(--surface)" stroke="var(--orange)" strokeWidth="1.75" />
-            <circle cx={x} cy={Y} r="4.5" fill="var(--orange)" />
+            <line x1={x} y1={Y + 15} x2={x} y2={TAPE_Y} stroke={color} strokeOpacity="0.4" strokeDasharray="2 4" strokeWidth="1.25" style={{ transition: "stroke 300ms" }} />
+            <circle cx={x} cy={Y} r="15" fill="var(--surface)" stroke={color} strokeWidth="1.75" style={{ transition: "stroke 300ms" }} />
+            <circle cx={x} cy={Y} r="4.5" fill={color} style={{ transition: "fill 300ms" }} />
             <text x={x} y={Y - 26} textAnchor="middle" className="fill-orange-text text-[12.5px] font-semibold">
               Keploy
             </text>
@@ -273,11 +265,11 @@ export function RecordReplaySim({ className }: { className?: string }) {
         ))}
 
         {/* tape */}
-        <rect x="8" y={TAPE_Y} width="544" height="104" rx="12" fill="var(--tape)" />
+        <rect x="8" y={TAPE_Y} width="544" height="104" rx="12" fill="var(--tape)" stroke="var(--tape-rule)" />
         <text x="24" y={TAPE_Y + 24} className="fill-tape-dim font-mono text-[12px]">
           keploy/test-set-0/
         </text>
-        {TAPE[stack].map(([file, what], i) => {
+        {TAPE.map(([file, what], i) => {
           const visible = i < written;
           const isReading = reading === i;
           return (
@@ -322,7 +314,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
                 cx={hop.tap}
                 cy={Y}
                 fill="none"
-                stroke="var(--orange)"
+                stroke={color}
                 strokeWidth="2"
                 initial={{ r: 15, opacity: 0 }}
                 animate={{ r: [15, 32], opacity: [0.8, 0] }}
@@ -367,7 +359,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
                 width="14"
                 height="10"
                 rx="2.5"
-                fill="var(--orange)"
+                fill={color}
                 initial={{ y: Y - 5, opacity: 0 }}
                 animate={{ y: ROW_Y(hop.drop) - 12, opacity: [0, 1, 1, 0] }}
                 transition={{ duration: 0.6, delay: tapDelay + 0.05, ease: EASE }}

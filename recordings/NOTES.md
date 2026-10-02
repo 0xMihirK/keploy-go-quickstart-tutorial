@@ -1,13 +1,13 @@
 # Run notes
 
-These notes are what I wrote down while running both Keploy Go quickstarts on 2 October 2026. Every command and output in the tutorial comes from these runs.
+These are my notes from running Keploy's Gin + MongoDB quickstart on 2 October 2026. I followed the docs' **Running App Locally** path ([keploy.io/docs/quickstart/samples-gin](https://keploy.io/docs/quickstart/samples-gin/)), where the Go app runs on the machine and only MongoDB runs in Docker. Every command and output in the tutorial comes from these runs.
 
 ## Setup
 
-- Windows 11 Home host with Docker Desktop 29.7.2. Docker Desktop's Linux VM runs the WSL2 kernel 6.18.40.1-microsoft-standard-WSL2.
-- The clean run happened in a privileged Ubuntu 22.04 container on that kernel, with Go 1.24.2. It used the host network and ran as root. On a normal Ubuntu or WSL2 install, the installer uses `sudo` to move `keploy` into `/usr/local/bin`, so it may ask for your password.
-- I installed Keploy with `curl --silent -O -L https://keploy.io/install.sh && source install.sh`, which installed **Keploy 3.8.58**. The capture is in `terminal/01-install.ansi`.
-- Databases came from each sample's `docker compose` file: `mongo` resolved to **MongoDB 9.0.2** (`mongod --version`), and Postgres is `postgres:10.5`.
+- The host was Windows 11 Home with Docker Desktop 29.7.2. Docker Desktop's Linux VM runs the WSL2 kernel 6.18.40.1-microsoft-standard-WSL2.
+- The clean run happened in a privileged Ubuntu 22.04 container on that kernel, with Go 1.24.2. It used the host network and ran as root. I repeated the record step afterwards as a normal user (see below).
+- I installed Keploy with `curl --silent -O -L https://keploy.io/install.sh && source install.sh`, which installed **Keploy 3.8.58**. The output is in `terminal/01-install.ansi`.
+- MongoDB came from the sample's compose file (`docker compose up -d mongo`). The `mongo` image resolved to **MongoDB 9.0.2** (`mongod --version`).
 - Samples: `keploy/samples-go` at commit `2b0a034` (2026-09-04).
 
 ## What I ran, in order
@@ -22,37 +22,44 @@ Each run has a raw capture in `terminal/`. The `.ansi` file is the output and th
 | 10-gin-record | `keploy record -c "go run main.go handler.go"`, then Ctrl+C |
 | 11-gin-post / 12-gin-get | the two `curl` requests from a second terminal |
 | 20-gin-test | `keploy test -c "go run main.go handler.go" --delay 10` with MongoDB stopped |
-| 30-gin-break | same, after changing `StatusSeeOther` to `StatusMovedPermanently` |
-| 31-gin-nonoise | same, after deleting `body.ts: []` from the test file |
-| 32-gin-globalnoise | same, with `body.ts` only in `keploy.yml` under `test.globalNoise.global` |
-| 05-echo-build | `go build -o echo-psql-url-shortener .` |
-| 40-echo-record, 41/42 | `keploy record -c "./echo-psql-url-shortener"` and the two requests |
-| 50-echo-test | `keploy test -c "./echo-psql-url-shortener" --delay 10` with Postgres stopped |
-| 60-echo-break | same, after changing `StatusPermanentRedirect` to `StatusTemporaryRedirect` and rebuilding |
-| 61-echo-nonoise | same, after deleting `body.ts: []` |
+| 30-gin-break | the same, after changing `StatusSeeOther` to `StatusMovedPermanently` |
+| 31-gin-nonoise | the same, after deleting `body.ts: []` from the test file |
+| 32-gin-globalnoise | the same, with `body.ts` only in `keploy.yml` under `test.globalNoise.global` |
 
-Before the Gin run I did `rm -rf keploy`, `sed -i 's/mongoDb:27017/localhost:27017/' main.go` and `docker compose up -d mongo`. Before the Echo run I did `rm -rf keploy`, `sed -i 's/host: "postgresDb"/host: "localhost"/' main.go` and `docker compose up -d postgres`. Their output is in `terminal/docker-compose.txt`.
+Before recording I ran `rm -rf keploy`, `sed -i 's/mongoDb:27017/localhost:27017/' main.go` and `docker compose up -d mongo`. The compose output is in `terminal/docker-compose.txt`.
 
-For the break step, my captured run used a longer `sed` expression that replaced the whole `c.Redirect(...)` call. The tutorial shows the shorter form. Each constant appears only once in its `handler.go`, so both make the same edit.
+My break-it capture used a longer `sed` that replaced the whole `c.Redirect(...)` call. The tutorial shows a shorter `sed`. `StatusSeeOther` appears only once in `handler.go`, so both make the same edit.
 
 ## Results
 
-| | Gin + MongoDB | Echo + PostgreSQL |
-|---|---|---|
-| Recorded | `post-url-1`, `get-7fvpssfg-1` | `post-url-1`, `get-4kepjktt-1` |
-| Auto-replay after Ctrl+C | 2/2 passed | 2/2 passed |
-| `keploy test`, database stopped | 2/2 passed, 10.17 s | 2/2 passed, 10.13 s |
-| Break it | 1 failed: expected 303, got 301 | 1 failed: expected 308, got 307 |
-| Noise rule removed | 1 failed on `ts` | 1 failed on `ts` |
+- **Recorded:** `post-url-1` and `get-7fvpssfg-1`, plus `mocks.yaml` with 5 MongoDB mocks.
+- **Auto-replay after Ctrl+C:** 2/2 passed.
+- **`keploy test` with MongoDB stopped:** 2/2 passed in 10.17 s.
+- **Break it:** 1 failed, with expected 303 and actual 301.
+- **Noise rule removed:** 1 failed on `ts`.
+- **Noise rule in `keploy.yml` instead:** 2/2 passed.
 
-The generated files are in `gin-mongo/` and `echo-sql/`. Keploy's own `keploy/.gitignore` (`/reports/`, `/*/mocks.yaml`) is left out here, so the mocks stay visible.
+The files Keploy generated are in `gin-mongo/`. I left out Keploy's own `keploy/.gitignore` (`/reports/`, `/*/mocks.yaml`) so the mocks stay visible.
+
+## Differences from the docs
+
+- The docs say to edit line 21 of `main.go`. In the current sample, the MongoDB address is on line 35.
+- The docs don't stop MongoDB before `keploy test`. I did, to check that the mocks stand in for it.
+- On macOS the docs record a built binary instead: `go build`, then `keploy record -c "./test-app-url-shortener"`. I didn't test macOS.
+
+## Running as a normal user
+
+See `terminal/non-root-user.txt`.
+
+- `keploy record` restarts itself with sudo and asks for the password: `[sudo] password for dev:`.
+- With sudo allowed, the same user recorded a test, and the files Keploy wrote belong to that user, not to root.
+- For a new user, the first `go run` spent over two minutes downloading modules before the app started listening. Running `go mod download` beforehand took 25 s, and recording then worked. The docs include this step.
 
 ## Problems I hit
 
-1. Microsoft Defender quarantined the native Windows build as `Trojan:Win32/Gracing.I` right after downloading it from `keploy.io/ent/dl/latest/enterprise_windows_amd64.exe`. I did not override it.
+1. Microsoft Defender quarantined the native Windows build as `Trojan:Win32/Gracing.I` right after it downloaded from `keploy.io/ent/dl/latest/enterprise_windows_amd64.exe`. I didn't override it.
 2. The open-source GitHub release (v3.6.86) only mocks HTTP and MySQL. Its banner is in `terminal/oss-build-banner.txt`.
-3. The `keploy login` browser link expires after one minute: `authentication timed out after 1 minute; last polling error: unexpected status 401: {"error":"invalid or expired code"}`. My workspace role could not create a read-scope API key: `you do not hold the "read" scope; a token cannot be stronger than the person creating it`.
+3. The `keploy login` browser link expires after one minute: `authentication timed out after 1 minute; last polling error: unexpected status 401: {"error":"invalid or expired code"}`. My workspace role couldn't create a read-scope API key: `you do not hold the "read" scope; a token cannot be stronger than the person creating it`.
 4. In Windows PowerShell 5.1, `curl` is `Invoke-WebRequest`: `A positional parameter cannot be found that accepts argument 'POST'.`
-5. In an earlier run, the echo-sql sample's shipped `test-set-0` crashed replay: `replayer: session RecordedIndex missing PostgresV3Session mock — cannot reply to StartupMessage`.
-6. Port 8080 was already taken by another container: `terminal/ingress-port-in-use.txt`.
-7. A request sent before the recorder is ready fails with `curl: (7) ... Connection refused`: `terminal/curl-refused.txt`.
+5. Port 8080 was already taken by another container: `terminal/ingress-port-in-use.txt`.
+6. A request sent before the recorder is ready fails with `curl: (7) ... Connection refused`: `terminal/curl-refused.txt`.

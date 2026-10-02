@@ -16,6 +16,7 @@ import {
   SLIDES,
   STEP_IDS,
   goTo,
+  supportsViewTransitions,
   indexOf,
   next,
   prev,
@@ -35,6 +36,8 @@ function SlideHeading({ id }: { id: string }) {
   const meta = SLIDES[indexOf(id)];
   const stepNo = STEP_IDS.indexOf(id);
   const progress = useProgress();
+  // The overview title is the page's h1; every other slide title is an h2.
+  const Heading = id === "overview" ? "h1" : "h2";
   return (
     <header className="mb-6">
       <p className="text-[14px] font-medium text-graphite">
@@ -53,7 +56,7 @@ function SlideHeading({ id }: { id: string }) {
           "After the steps"
         )}
       </p>
-      <h2
+      <Heading
         id={`${id}-title`}
         className={cn(
           "mt-1.5 font-semibold tracking-[-0.03em] text-balance text-ink",
@@ -63,7 +66,7 @@ function SlideHeading({ id }: { id: string }) {
         )}
       >
         {meta.title}
-      </h2>
+      </Heading>
     </header>
   );
 }
@@ -96,18 +99,24 @@ export function Slide({
       >
         <motion.div
           key={active ? "on" : "off"}
-          initial={reduce || !active || !moved ? false : { opacity: 0, x: dir * 24 }}
+          // View Transitions animate slide changes where supported; this is the fallback.
+          initial={
+            reduce || !active || !moved || supportsViewTransitions()
+              ? false
+              : { opacity: 0, x: dir * 24 }
+          }
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, ease: [0.22, 0.8, 0.3, 1] }}
           className="tall:h-full"
         >
           {layout === "split" ? (
-            <div className="tall:grid tall:h-full tall:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
+            // Stacked (small or short windows): one centred, readable column.
+            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
               {children}
             </div>
           ) : (
-            <div data-scroll className="tall:h-full tall:overflow-y-auto tall:overscroll-contain">
-              <div className="prose mx-auto max-w-3xl py-8 tall:py-12">
+            <div data-scroll className="tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain">
+              <div className="prose mx-auto w-full max-w-3xl py-8 tall:my-auto tall:py-12">
                 <SlideHeading id={id} />
                 {children}
               </div>
@@ -125,10 +134,15 @@ export function Lesson({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-scroll
-      className="min-w-0 pt-8 pb-6 tall:h-full tall:overflow-y-auto tall:overscroll-contain tall:py-10 tall:pr-10"
+      tabIndex={0}
+      aria-label="Lesson"
+      className="min-w-0 pt-8 pb-6 outline-none focus-visible:ring-2 focus-visible:ring-orange/60 tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain tall:py-10 tall:pr-12"
     >
-      <SlideHeading id={id} />
-      <div className="prose text-[16.5px]">{children}</div>
+      {/* my-auto centres short content and still scrolls from the top when long. */}
+      <div className="tall:my-auto">
+        <SlideHeading id={id} />
+        <div className="prose text-[16.5px]">{children}</div>
+      </div>
     </div>
   );
 }
@@ -138,10 +152,13 @@ export function Lab({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-scroll
-      data-lab
-      className="min-w-0 pb-8 tall:h-full tall:overflow-y-auto tall:overscroll-contain tall:border-l tall:border-rule tall:py-10 tall:pl-10"
+      tabIndex={0}
+      aria-label="Practice"
+      className="min-w-0 pb-8 outline-none focus-visible:ring-2 focus-visible:ring-orange/60 tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain tall:border-l tall:border-rule tall:py-10 tall:pl-12"
     >
-      {children}
+      <div data-lab className="tall:my-auto">
+        {children}
+      </div>
     </div>
   );
 }
@@ -200,18 +217,50 @@ export function DeckController() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // New slide: back to the top, focus its heading for screen readers.
+  // Swipe left or right on touch screens. Terminals and wide tables keep
+  // their own horizontal scrolling, so swipes that start there are ignored.
   useEffect(() => {
-    document.title = `${SLIDES[index].title} · Keploy + Go quickstart`;
+    const main = document.getElementById("content");
+    if (!main) return;
+    let start: { x: number; y: number; t: number } | null = null;
+    const onStart = (e: TouchEvent) => {
+      const target = e.target as Element;
+      if (e.touches.length !== 1 || target.closest("[role=log],[data-no-swipe],.overflow-x-auto,input,button")) {
+        start = null;
+        return;
+      }
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!start) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      const dy = e.changedTouches[0].clientY - start.y;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - start.t < 700) {
+        if (dx < 0) next();
+        else prev();
+      }
+      start = null;
+    };
+    main.addEventListener("touchstart", onStart, { passive: true });
+    main.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      main.removeEventListener("touchstart", onStart);
+      main.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  // New slide: title for the tab, focus on its heading for screen readers.
+  // (goTo already put the slide's scroll positions back at the top.)
+  useEffect(() => {
+    // Next applies its metadata title during hydration; set ours a frame later.
+    const title = `${SLIDES[index].title} · Keploy + Go quickstart`;
+    requestAnimationFrame(() => {
+      document.title = title;
+    });
     if (first.current) {
       first.current = false;
       return;
     }
-    // Each slide keeps its own scroll positions; start every visit at the top.
-    document.getElementById("content")?.scrollTo({ top: 0 });
-    document
-      .querySelectorAll<HTMLElement>(`[data-slide="${SLIDES[index].id}"] [data-scroll]`)
-      .forEach((el) => el.scrollTo({ top: 0 }));
     const h = document.getElementById(`${SLIDES[index].id}-title`);
     h?.setAttribute("tabindex", "-1");
     h?.focus({ preventScroll: true });
@@ -234,19 +283,19 @@ export function DeckFooter() {
       aria-label="Tutorial pages"
       className="shrink-0 border-t border-rule bg-paper"
     >
-      <div className="mx-auto flex h-16 max-w-[84rem] items-center gap-3 px-4 sm:px-8">
+      {/* Three columns so the hint sits at the true centre. */}
+      <div className="mx-auto grid h-16 max-w-[84rem] grid-cols-2 items-center gap-3 px-4 sm:px-8 md:grid-cols-[1fr_auto_1fr]">
         <button
           type="button"
           onClick={prev}
           disabled={!before}
-          className="group inline-flex h-10 min-w-0 items-center gap-2 rounded-lg px-3 text-[14.5px] text-graphite transition-colors hover:bg-muted hover:text-ink disabled:invisible"
+          className="group inline-flex h-10 min-w-0 items-center gap-2 justify-self-start rounded-lg px-3 text-[14.5px] text-graphite transition-colors hover:bg-muted hover:text-ink disabled:invisible"
         >
           <ArrowLeft className="size-4 shrink-0 transition-transform group-hover:-translate-x-0.5" aria-hidden="true" />
           <span className="hidden truncate sm:inline">{before ? before.nav ?? before.title : ""}</span>
           <span className="sm:hidden">Back</span>
         </button>
-        <p className="mx-auto hidden shrink-0 items-center gap-2 text-[13px] text-graphite tabular-nums md:flex">
-          {index + 1} / {SLIDES.length}
+        <p className="hidden items-center gap-2 text-[13px] text-graphite md:flex">
           <span>
             <kbd className="rounded border border-rule px-1 font-mono text-[11px]">←</kbd>{" "}
             <kbd className="rounded border border-rule px-1 font-mono text-[11px]">→</kbd> to move
@@ -256,7 +305,7 @@ export function DeckFooter() {
           <button
             type="button"
             onClick={next}
-            className="group ml-auto inline-flex h-10 min-w-0 items-center gap-2 rounded-lg bg-ink px-4 text-[14.5px] font-medium text-paper transition-colors hover:bg-ink/85 md:ml-0"
+            className="group inline-flex h-10 min-w-0 items-center gap-2 justify-self-end rounded-lg bg-ink px-4 text-[14.5px] font-medium text-paper transition-[background-color,transform] hover:bg-ink/85 active:scale-[0.97]"
           >
             <span className="truncate">
               <span className="hidden text-paper/65 sm:inline">Next: </span>
@@ -268,7 +317,7 @@ export function DeckFooter() {
           <button
             type="button"
             onClick={() => goTo(0)}
-            className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-rule px-4 text-[14.5px] font-medium text-ink hover:bg-muted md:ml-0"
+            className="inline-flex h-10 items-center gap-2 justify-self-end rounded-lg border border-rule px-4 text-[14.5px] font-medium text-ink hover:bg-muted"
           >
             <RotateCcw className="size-4" aria-hidden="true" />
             Back to the start
@@ -436,5 +485,27 @@ export function GoTo({ id, children }: { id: string; children: React.ReactNode }
     >
       {children}
     </a>
+  );
+}
+
+/** How far through the tutorial you are, along the bottom edge of the header. */
+export function DeckProgress() {
+  const { index } = useDeck();
+  const pct = ((index + 1) / SLIDES.length) * 100;
+  return (
+    <div
+      className="h-[3px] w-full bg-rule/70"
+      role="progressbar"
+      aria-label="Tutorial progress"
+      aria-valuemin={1}
+      aria-valuemax={SLIDES.length}
+      aria-valuenow={index + 1}
+      aria-valuetext={`Page ${index + 1} of ${SLIDES.length}`}
+    >
+      <div
+        className="h-full rounded-r-full bg-gradient-to-r from-record via-orange to-replay transition-[width] duration-500 ease-out"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
   );
 }

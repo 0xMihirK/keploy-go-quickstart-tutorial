@@ -57,9 +57,11 @@ export function NoiseLab({
           {"\n"}
           <span className="text-[#93c0ff]">  assertions</span>:{"\n"}
           <span className="text-[#93c0ff]">    noise</span>:{"\n"}
-          <span className={cn("block transition-opacity", on ? "opacity-100" : "line-through opacity-40")}>
+          <span className="block">
             {"      "}
-            <span className="text-[#93c0ff]">body.ts</span>: []
+            <span className={cn("transition-opacity", on ? "opacity-100" : "line-through opacity-40")}>
+              <span className="text-[#93c0ff]">body.ts</span>: []
+            </span>
           </span>
           {"      "}
           <span className="text-[#93c0ff]">header.Date</span>: []

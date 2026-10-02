@@ -103,7 +103,7 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
 
   return (
     <div className="not-prose my-7 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink">
-      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[12.5rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[14.5rem_minmax(0,1fr)]">
         <nav
           aria-label="Files Keploy created"
           className="border-b border-tape-rule p-2 font-mono text-[12px] md:border-r md:border-b-0"
@@ -113,7 +113,7 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
               <div
                 key={r.path}
                 className="flex items-center gap-1.5 py-1 pr-2 whitespace-nowrap text-tape-dim"
-                style={{ paddingLeft: 8 + r.depth * 14 }}
+                style={{ paddingLeft: 8 + r.depth * 12 }}
               >
                 {files[active].path.startsWith(r.path + "/") ? (
                   <FolderOpen className="size-3.5 shrink-0" aria-hidden="true" />
@@ -132,7 +132,8 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
                   codeRef.current?.scrollTo({ top: 0 });
                 }}
                 aria-current={r.i === active ? "true" : undefined}
-                style={{ paddingLeft: 8 + r.depth * 14 }}
+                title={files[r.i].path}
+                style={{ paddingLeft: 8 + r.depth * 12 }}
                 className={cn(
                   "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left whitespace-nowrap transition-colors",
                   r.i === active
@@ -168,7 +169,7 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
                       on && "bg-orange/[0.14]",
                     )}
                   >
-                    <span className="w-10 shrink-0 pr-3 text-right text-tape-dim/60 select-none">
+                    <span aria-hidden="true" className="w-10 shrink-0 pr-3 text-right text-tape-dim select-none">
                       {i + 1}
                     </span>
                     {a !== -1 ? (

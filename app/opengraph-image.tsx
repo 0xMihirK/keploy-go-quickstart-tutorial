@@ -62,7 +62,7 @@ export default function Image() {
         >
           <span style={{ color: "#ff8a8e" }}>● keploy record</span>
           <span style={{ color: "#5fe0d8", marginLeft: 24 }}>▶ keploy test</span>
-          <span style={{ marginLeft: 24 }}>Gin + MongoDB · Echo + PostgreSQL</span>
+          <span style={{ marginLeft: 24 }}>Gin + MongoDB sample</span>
         </div>
       </div>
     ),

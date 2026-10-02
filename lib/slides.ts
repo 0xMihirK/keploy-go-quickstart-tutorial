@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 
 import { SLIDES } from "./slides-data";
 export { SLIDES, STEP_IDS, type SlideGroup, type SlideMeta } from "./slides-data";
@@ -29,15 +30,52 @@ export function indexOf(id: string) {
   return SLIDES.findIndex((s) => s.id === id);
 }
 
+type VTDocument = Document & {
+  startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+};
+
+/** True when slide changes animate with the View Transitions API. */
+export const supportsViewTransitions = () =>
+  typeof document !== "undefined" && "startViewTransition" in document;
+
+/**
+ * Show slide `i` and put its scroll positions back at the top. Inside a view
+ * transition React must commit synchronously; elsewhere a normal update is
+ * enough (and flushSync would fail when called from an effect).
+ */
+function commit(i: number, sync = false) {
+  if (sync) flushSync(emit);
+  else emit();
+  document.getElementById("content")?.scrollTo({ top: 0, behavior: "instant" });
+  document
+    .querySelectorAll<HTMLElement>(`[data-slide="${SLIDES[i].id}"] [data-scroll]`)
+    .forEach((el) => el.scrollTo({ top: 0, behavior: "instant" }));
+}
+
 export function goTo(index: number, opts: { updateHash?: boolean } = {}) {
   const i = Math.max(0, Math.min(SLIDES.length - 1, index));
   if (i === state.index) return;
-  state = { index: i, dir: i > state.index ? 1 : -1, moved: opts.updateHash !== false };
-  if (opts.updateHash !== false && typeof window !== "undefined") {
+  const user = opts.updateHash !== false;
+  state = { index: i, dir: i > state.index ? 1 : -1, moved: user };
+  if (user && typeof window !== "undefined") {
     const hash = i === 0 ? " " : `#${SLIDES[i].id}`;
     history.pushState(null, "", hash === " " ? location.pathname : hash);
   }
-  emit();
+  if (typeof document === "undefined") return emit();
+
+  const doc = document as VTDocument;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!user) return commit(i);
+  if (reduce || !doc.startViewTransition) return commit(i, true);
+
+  // Crossfade the old slide out and the new one in, in the direction of travel.
+  const root = document.documentElement;
+  root.dataset.vt = state.dir > 0 ? "forward" : "back";
+  doc
+    .startViewTransition(() => commit(i, true))
+    .finished.finally(() => {
+      delete root.dataset.vt;
+    });
 }
 
 export const next = () => goTo(state.index + 1);

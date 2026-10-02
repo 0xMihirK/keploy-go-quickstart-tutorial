@@ -4,7 +4,6 @@ import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { Header } from "@/components/docs/chrome";
 import { DeckController, DeckFooter } from "@/components/docs/slides";
-import { stackInitScript } from "@/components/docs/stack";
 import { startSlideCss, startSlideScript } from "@/lib/slides-data";
 import "./globals.css";
 
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: "Record API tests from real traffic: Keploy + Go quickstart",
   description:
-    "A hands-on tutorial: record tests and database mocks from a Go app's real traffic with Keploy, then replay them with the database switched off. Gin + MongoDB or Echo + PostgreSQL.",
+    "A hands-on tutorial: record tests and database mocks from a Go app's real traffic with Keploy, then replay them with the database switched off. Uses Keploy's Gin + MongoDB sample.",
   openGraph: {
     title: "Record API tests from real traffic with Keploy",
     description:
@@ -54,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `${stackInitScript};${startSlideScript}` }} />
+        <script dangerouslySetInnerHTML={{ __html: startSlideScript }} />
         <style dangerouslySetInnerHTML={{ __html: startSlideCss }} />
         <noscript>
           <style>{"body{height:auto!important;overflow:visible!important;display:block!important}main{overflow:visible!important}[data-slide]{display:block!important;margin-bottom:6rem}[data-deck-ui]{display:none!important}"}</style>

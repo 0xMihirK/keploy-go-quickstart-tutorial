@@ -127,3 +127,79 @@ export function Ansi({ text }: { text: string }) {
 export function stripAnsi(text: string) {
   return text.replace(SGR, "");
 }
+
+/** One character cell with the colour it was printed in. */
+export function ansiCells(text: string): { ch: string; fg?: string }[] {
+  const cells: { ch: string; fg?: string }[] = [];
+  let style: Style = {};
+  let last = 0;
+  const push = (s: string) => {
+    for (const ch of s) cells.push({ ch, fg: style.fg });
+  };
+  for (const m of text.matchAll(SGR)) {
+    push(text.slice(last, m.index));
+    style = apply(style, (m[1] || "0").split(";").map((n) => Number(n || 0)));
+    last = m.index! + m[0].length;
+  }
+  push(text.slice(last));
+  return cells;
+}
+
+// How a terminal draws block elements itself: shapes and shades on the cell
+// grid, not font glyphs. Each cell is 1 unit wide and 2 units tall.
+const SHAPES: Record<string, { x: number; y: number; w: number; h: number; o?: number }> = {
+  "█": { x: 0, y: 0, w: 1, h: 2 },
+  "▀": { x: 0, y: 0, w: 1, h: 1 },
+  "▄": { x: 0, y: 1, w: 1, h: 1 },
+  "▌": { x: 0, y: 0, w: 0.5, h: 2 },
+  "▐": { x: 0.5, y: 0, w: 0.5, h: 2 },
+  "▓": { x: 0, y: 0, w: 1, h: 2, o: 0.85 },
+  "▒": { x: 0, y: 0, w: 1, h: 2, o: 0.6 },
+  "░": { x: 0, y: 0, w: 1, h: 2, o: 0.25 },
+};
+
+export const isBlockArt = (text: string) => /[█▀▄▌▐▓▒░]/.test(text);
+
+/**
+ * A line of block art (Keploy's banner). Blocks are drawn as one crisp SVG so
+ * neighbouring cells join without seams; any letters on the line sit in a text
+ * layer on the same cell grid.
+ */
+export function BlockArt({ text }: { text: string }) {
+  const cells = ansiCells(text);
+  const n = cells.length;
+  return (
+    <div className="relative h-[1.2em] w-max whitespace-pre leading-[1.2em]" aria-hidden="true">
+      <svg
+        className="absolute inset-0 h-full"
+        style={{ width: `${n}ch` }}
+        viewBox={`0 0 ${n} 2`}
+        preserveAspectRatio="none"
+        shapeRendering="crispEdges"
+      >
+        {cells.map((c, i) => {
+          const s = SHAPES[c.ch];
+          if (!s) return null;
+          return (
+            <rect
+              key={i}
+              x={i + s.x}
+              y={s.y}
+              width={s.w}
+              height={s.h}
+              fill={c.fg ?? "#d7dce4"}
+              opacity={s.o}
+            />
+          );
+        })}
+      </svg>
+      <span className="relative">
+        {cells.map((c, i) => (
+          <span key={i} style={{ color: c.fg }}>
+            {SHAPES[c.ch] ? " " : c.ch}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}

@@ -1,8 +1,0 @@
-preScript: ""
-postScript: ""
-appCommand: ""
-template: {}
-metadata: {}
-mockRegistry:
-    mock: a255ccca985eeb3afbea83c46e35232a12c29e5ef4ebfdcac0f6ae57d6cee4f0
-    app: echo-sql
