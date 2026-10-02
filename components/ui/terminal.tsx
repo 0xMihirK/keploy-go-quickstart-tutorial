@@ -1,0 +1,447 @@
+"use client";
+
+// Adapted from Magic UI's Terminal (https://magicui.design/docs/components/terminal).
+// Changes: design tokens, header with title/mode badge/copy, size props,
+// reduced-motion support, a11y live region, and a rules-of-hooks fix.
+
+import {
+  Children,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type RefAttributes,
+} from "react";
+import {
+  motion,
+  useInView,
+  useReducedMotion,
+  type DOMMotionComponents,
+  type HTMLMotionProps,
+  type MotionProps,
+} from "motion/react";
+import { Check, Copy } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+interface SequenceContextValue {
+  completeItem: (index: number) => void;
+  activeIndex: number;
+  sequenceStarted: boolean;
+}
+
+const SequenceContext = createContext<SequenceContextValue | null>(null);
+const useSequence = () => useContext(SequenceContext);
+
+const ItemIndexContext = createContext<number | null>(null);
+const useItemIndex = () => useContext(ItemIndexContext);
+
+const motionElements = {
+  article: motion.article,
+  div: motion.div,
+  h1: motion.h1,
+  h2: motion.h2,
+  h3: motion.h3,
+  h4: motion.h4,
+  h5: motion.h5,
+  h6: motion.h6,
+  li: motion.li,
+  p: motion.p,
+  section: motion.section,
+  span: motion.span,
+} as const;
+
+type MotionElementType = Extract<
+  keyof DOMMotionComponents,
+  keyof typeof motionElements
+>;
+type TerminalTypingMotionComponent = ComponentType<
+  Omit<HTMLMotionProps<"span">, "ref"> & RefAttributes<HTMLElement>
+>;
+
+interface AnimatedSpanProps extends MotionProps {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+  startOnView?: boolean;
+}
+
+export const AnimatedSpan = ({
+  children,
+  delay = 0,
+  className,
+  startOnView = false,
+  ...props
+}: AnimatedSpanProps) => {
+  const elementRef = useRef<HTMLDivElement | null>(null);
+  const isInView = useInView(elementRef as React.RefObject<Element>, {
+    amount: 0.3,
+    once: true,
+  });
+  const reduce = useReducedMotion();
+
+  const sequence = useSequence();
+  const itemIndex = useItemIndex();
+  // The active index only moves forward, so "started" is derived, not stored.
+  const hasStarted =
+    !!sequence &&
+    itemIndex !== null &&
+    sequence.sequenceStarted &&
+    sequence.activeIndex >= itemIndex;
+
+  const shouldAnimate = sequence ? hasStarted : startOnView ? isInView : true;
+
+  return (
+    <motion.div
+      ref={elementRef}
+      initial={reduce ? false : { opacity: 0, y: -4 }}
+      animate={
+        reduce || shouldAnimate ? { opacity: 1, y: 0 } : { opacity: 0, y: -4 }
+      }
+      transition={{
+        duration: reduce ? 0 : 0.18,
+        delay: sequence || reduce ? 0 : delay / 1000,
+      }}
+      // In a sequence, lines take no space until they print, like a real tty.
+      className={cn(
+        "grid whitespace-pre-wrap break-words",
+        sequence && !hasStarted && !reduce && "hidden",
+        className,
+      )}
+      onAnimationComplete={() => {
+        if (!sequence) return;
+        if (itemIndex === null) return;
+        sequence.completeItem(itemIndex);
+      }}
+      {...props}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+interface TypingAnimationProps extends Omit<MotionProps, "children"> {
+  children: string;
+  className?: string;
+  duration?: number;
+  delay?: number;
+  as?: MotionElementType;
+  startOnView?: boolean;
+  /** Text shown before the typed string, e.g. a shell prompt. Not typed. */
+  prompt?: React.ReactNode;
+  /** Called once the full string is on screen. */
+  onComplete?: () => void;
+}
+
+export const TypingAnimation = ({
+  children,
+  className,
+  duration = 28,
+  delay = 0,
+  as: Component = "span",
+  startOnView = true,
+  prompt,
+  onComplete,
+  ...props
+}: TypingAnimationProps) => {
+  const MotionComponent = motionElements[
+    Component
+  ] as TerminalTypingMotionComponent;
+  const reduce = useReducedMotion();
+
+  const [typed, setTyped] = useState<string>("");
+  const [timerStarted, setTimerStarted] = useState(false);
+  const elementRef = useRef<HTMLElement | null>(null);
+  const isInView = useInView(elementRef as React.RefObject<Element>, {
+    amount: 0.3,
+    once: true,
+  });
+
+  const sequence = useSequence();
+  const itemIndex = useItemIndex();
+  const hasSequence = sequence !== null;
+  const sequenceStarted = sequence?.sequenceStarted ?? false;
+  const sequenceActiveIndex = sequence?.activeIndex ?? null;
+  const sequenceCompleteItemRef = useRef<
+    SequenceContextValue["completeItem"] | null
+  >(null);
+  const sequenceItemIndexRef = useRef<number | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    sequenceCompleteItemRef.current = sequence?.completeItem ?? null;
+    sequenceItemIndexRef.current = itemIndex;
+  }, [sequence?.completeItem, itemIndex]);
+
+  // In a sequence, start when it's this item's turn; otherwise on a timer.
+  const started =
+    hasSequence && itemIndex !== null
+      ? sequenceStarted && sequenceActiveIndex !== null && sequenceActiveIndex >= itemIndex
+      : timerStarted;
+
+  useEffect(() => {
+    if (hasSequence && itemIndex !== null) return;
+    if (startOnView && !isInView) return;
+    const t = setTimeout(() => setTimerStarted(true), delay);
+    return () => clearTimeout(t);
+  }, [delay, startOnView, isInView, hasSequence, itemIndex]);
+
+  useEffect(() => {
+    if (!started) return;
+    const finish = () => {
+      onCompleteRef.current?.();
+      const completeItem = sequenceCompleteItemRef.current;
+      const currentItemIndex = sequenceItemIndexRef.current;
+      if (completeItem && currentItemIndex !== null) {
+        completeItem(currentItemIndex);
+      }
+    };
+
+    // Reduced motion: the full text renders at once (see `displayedText`).
+    if (reduce) {
+      const t = setTimeout(finish, 0);
+      return () => clearTimeout(t);
+    }
+
+    let i = 0;
+    const typingEffect = setInterval(() => {
+      if (i < children.length) {
+        setTyped(children.substring(0, i + 1));
+        i++;
+      } else {
+        clearInterval(typingEffect);
+        finish();
+      }
+    }, duration);
+
+    return () => clearInterval(typingEffect);
+  }, [children, duration, started, reduce]);
+
+  const displayedText = reduce && started ? children : typed;
+
+  if (typeof children !== "string") {
+    throw new Error("TypingAnimation: children must be a string.");
+  }
+
+  return (
+    <MotionComponent
+      ref={elementRef}
+      className={cn(
+        "whitespace-pre-wrap break-all",
+        hasSequence && !started && !reduce && "hidden",
+        className,
+      )}
+      {...props}
+    >
+      {prompt}
+      <span aria-hidden="true">{displayedText}</span>
+      <span className="sr-only">{children}</span>
+      {started && displayedText.length < children.length && (
+        <span
+          aria-hidden="true"
+          className="caret ml-px inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink"
+        />
+      )}
+    </MotionComponent>
+  );
+};
+
+type TerminalMode = "record" | "replay" | null;
+
+interface TerminalProps {
+  children: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  sequence?: boolean;
+  startOnView?: boolean;
+  /** Shell + working directory shown in the title bar. */
+  title?: string;
+  mode?: TerminalMode;
+  /** Plain-text commands copied by the header copy button. */
+  copyText?: string;
+  /** Max body height (CSS length). Body scrolls beyond it. */
+  maxHeight?: string;
+  /** Accessible name for the output log. */
+  label?: string;
+  /** Rendered at the bottom of the body (e.g. an input row). */
+  footer?: React.ReactNode;
+  /** Change this to keep the view pinned to new output. */
+  scrollKey?: unknown;
+  /** Shown under the body, e.g. run status. */
+  statusBar?: React.ReactNode;
+}
+
+function ModeBadge({ mode }: { mode: Exclude<TerminalMode, null> }) {
+  return mode === "record" ? (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-record/40 bg-record/10 px-2 py-0.5 text-[11px] font-medium text-[#ff8a8e]">
+      <span className="rec-pulse size-1.5 rounded-full bg-record" />
+      Recording
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-replay/40 bg-replay/10 px-2 py-0.5 text-[11px] font-medium text-[#5fe0d8]">
+      <svg viewBox="0 0 8 8" className="size-2 fill-current" aria-hidden="true">
+        <path d="M1 0.5 7 4 1 7.5z" />
+      </svg>
+      Replaying
+    </span>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch {
+          /* clipboard blocked: nothing to do */
+        }
+      }}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-tape-dim transition-colors hover:bg-white/5 hover:text-tape-ink"
+      aria-label={copied ? "Copied" : "Copy commands"}
+    >
+      {copied ? (
+        <Check className="size-3.5" aria-hidden="true" />
+      ) : (
+        <Copy className="size-3.5" aria-hidden="true" />
+      )}
+      <span>{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
+}
+
+export const Terminal = ({
+  children,
+  className,
+  bodyClassName,
+  sequence = true,
+  startOnView = true,
+  title,
+  mode = null,
+  copyText,
+  maxHeight = "26rem",
+  label = "Terminal output",
+  footer,
+  scrollKey,
+  statusBar,
+}: TerminalProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const isInView = useInView(containerRef as React.RefObject<Element>, {
+    amount: 0.3,
+    once: true,
+  });
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const sequenceHasStarted = sequence ? !startOnView || isInView : false;
+  const count = Children.toArray(children).length;
+  const done = sequence ? activeIndex >= count : true;
+
+  const contextValue = useMemo<SequenceContextValue | null>(() => {
+    if (!sequence) return null;
+    return {
+      completeItem: (index: number) => {
+        setActiveIndex((current) =>
+          index === current ? current + 1 : current,
+        );
+      },
+      activeIndex,
+      sequenceStarted: sequenceHasStarted,
+    };
+  }, [sequence, activeIndex, sequenceHasStarted]);
+
+  // Follow new output, unless the reader scrolled up to look at something.
+  const pinned = useRef(true);
+  const lastSet = useRef(0);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (el && pinned.current) {
+      el.scrollTop = el.scrollHeight;
+      lastSet.current = el.scrollTop;
+    }
+  }, [activeIndex, scrollKey]);
+
+  const wrappedChildren = useMemo(() => {
+    if (!sequence) return children;
+    return Children.toArray(children).map((child, index) => (
+      <ItemIndexContext.Provider key={index} value={index}>
+        {child as React.ReactNode}
+      </ItemIndexContext.Provider>
+    ));
+  }, [children, sequence]);
+
+  const content = (
+    <div
+      ref={containerRef}
+      className={cn(
+        "z-0 w-full overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_40px_-24px_rgba(8,10,14,0.55)]",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-3 border-b border-tape-rule px-3.5 py-2">
+        <div className="flex shrink-0 gap-1.5" aria-hidden="true">
+          <span className="size-2.5 rounded-full bg-[#3a4250]" />
+          <span className="size-2.5 rounded-full bg-[#3a4250]" />
+          <span className="size-2.5 rounded-full bg-[#3a4250]" />
+        </div>
+        {title && (
+          <span className="min-w-0 truncate font-mono text-[11.5px] text-tape-dim">
+            {title}
+          </span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {mode && <ModeBadge mode={mode} />}
+          {copyText && <CopyButton text={copyText} />}
+        </span>
+      </div>
+      <div
+        ref={bodyRef}
+        role="log"
+        aria-live="off"
+        aria-label={label}
+        aria-busy={!done}
+        className={cn(
+          "overflow-auto px-4 py-3.5 font-mono text-[12.5px] leading-[1.6]",
+          bodyClassName,
+        )}
+        style={{ maxHeight }}
+        onScroll={(e) => {
+          // Unpin only when the reader scrolls above where we last put them;
+          // re-pin when they come back to the bottom.
+          const el = e.currentTarget;
+          if (el.scrollTop + 4 < lastSet.current) pinned.current = false;
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 24) {
+            pinned.current = true;
+            lastSet.current = el.scrollTop;
+          }
+        }}
+      >
+        <pre className="font-mono text-[12.5px] leading-[1.6]">
+          <code className="grid gap-y-0.5">{wrappedChildren}</code>
+        </pre>
+        {footer}
+      </div>
+      {statusBar}
+    </div>
+  );
+
+  if (!sequence) return content;
+
+  return (
+    <SequenceContext.Provider value={contextValue}>
+      {content}
+    </SequenceContext.Provider>
+  );
+};
+
+export default Terminal;

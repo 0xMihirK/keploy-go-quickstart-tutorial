@@ -1,0 +1,8 @@
+preScript: ""
+postScript: ""
+appCommand: ""
+template: {}
+metadata: {}
+mockRegistry:
+    mock: c5d03b4691bc94bee12413dd2045c45d07f42b179fecccb68f32c692adcf20b4
+    app: gin-mongo

@@ -1,0 +1,488 @@
+import { LoopTerminal, Needs, StartButton } from "@/components/docs/hero";
+import { RecordReplaySim } from "@/components/docs/record-replay-sim";
+import { Stack } from "@/components/docs/stack";
+import { Slide, Lesson, Lab, GoTo } from "@/components/docs/slides";
+import { SimTerminal } from "@/components/docs/sim-terminal";
+import { RecordSession } from "@/components/docs/record-session";
+import { KeployFiles } from "@/components/docs/keploy-files";
+import { NoiseLab } from "@/components/docs/noise-lab";
+import { Callout, Checkpoint, Quiz, TestedOn } from "@/components/docs/content";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/docs/ui";
+
+<Slide id="overview">
+<Lesson>
+
+Keploy watches the requests your Go app handles and the database calls it makes, and saves both as YAML. Replay that file later and your app gets the same answers, even with the database switched off.
+
+It takes about 15 minutes. Every step has a practice terminal that replays my real run, so you can try each command here before you run it yourself.
+
+<StartButton />
+
+</Lesson>
+<Lab>
+<RecordReplaySim />
+<Needs />
+</Lab>
+</Slide>
+
+<Slide id="how-it-works">
+<Lesson>
+
+API tests for a Go service usually need fakes: an interface for the database, a mock that implements it, fixtures for each case. Keploy skips that. It runs your app unchanged and sits on the network between the app and everything it talks to.
+
+While you **record**, every request and response becomes a test case, and every database call and its answer becomes a mock. When you **test**, Keploy restarts the app, sends the recorded requests, and answers the database calls from the mocks.
+
+On Linux, Keploy uses eBPF, a kernel feature that can reroute a program's network traffic, to pass your app's connections through its proxy. That's how it works without changes to your code.
+
+<Quiz
+  question="During keploy test, who answers your app's database queries?"
+  options={[
+    "The real database, so it has to be running",
+    "Keploy, from the mocks it saved while recording",
+    "A copy of the database that Keploy starts in Docker",
+  ]}
+  answer={1}
+  explain="Keploy's proxy matches each query against the recorded mocks and sends back the saved answer. In step 6 you stop the database to prove it."
+/>
+
+</Lesson>
+<Lab>
+<LoopTerminal />
+<TestedOn
+  rows={[
+    ["Keploy", "3.8.58, from keploy.io"],
+    ["OS", "Ubuntu 22.04, WSL2 kernel, Windows 11 host"],
+    ["Go", "1.24.2"],
+    ["Docker", "29.7.2"],
+    ["Databases", "mongo 9.0.2, postgres 10.5"],
+    ["Run on", "2 October 2026"],
+  ]}
+/>
+</Lab>
+</Slide>
+
+<Slide id="install">
+<Lesson>
+
+Keploy's installer downloads the full build and puts `keploy` on your `PATH`. Run it in the terminal on the right, then in your own.
+
+<Tabs defaultValue="linux" className="not-prose">
+  <TabsList>
+    <TabsTrigger value="linux">Linux and WSL2</TabsTrigger>
+    <TabsTrigger value="windows">Windows</TabsTrigger>
+    <TabsTrigger value="mac">macOS</TabsTrigger>
+  </TabsList>
+  <TabsContent value="linux" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
+    Use this installer, not the GitHub release. I tried the GitHub build first: its banner says it handles only HTTP and MySQL, and that MongoDB and PostgreSQL need the keploy.io build.
+  </TabsContent>
+  <TabsContent value="windows" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
+    Keploy lists a native Windows build, but Microsoft Defender quarantined `keploy.exe` as `Trojan:Win32/Gracing.I` the moment I downloaded it. It's probably a false positive. I didn't override my antivirus for a tutorial; run everything in WSL2 with Ubuntu instead.
+  </TabsContent>
+  <TabsContent value="mac" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
+    The installer supports Apple silicon and refuses Intel Macs. I haven't run this tutorial on a Mac, so follow [Keploy's install guide](https://keploy.io/docs/server/installation/) and continue from step 2.
+  </TabsContent>
+</Tabs>
+
+<Checkpoint id="install">
+
+the Keploy banner and `Keploy: 3.8.58` or newer.
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<SimTerminal
+  id="install"
+  cwd="~"
+  commands={[{ cmd: "curl --silent -O -L https://keploy.io/install.sh && source install.sh", run: "01-install" }]}
+  label="Install terminal"
+/>
+</Lab>
+</Slide>
+
+<Slide id="sign-in">
+<Lesson>
+
+The keploy.io build needs a free account. `keploy login` prints a link and waits; open it, sign in, and the terminal picks it up. You only do this once.
+
+<Callout type="hit" title="The link expires after one minute">
+
+My first attempt failed with `authentication timed out after 1 minute`. I wasn't signed in at app.keploy.io yet, and making the account took longer than that. Sign up at [app.keploy.io](https://app.keploy.io) first.
+
+</Callout>
+
+<Checkpoint id="sign-in">
+
+`Logged in successfully!`
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<SimTerminal
+  id="sign-in"
+  cwd="~"
+  commands={[{ cmd: "keploy login", run: "02-login" }]}
+  label="Sign-in terminal"
+/>
+</Lab>
+</Slide>
+
+<Slide id="clone">
+<Lesson>
+
+Clone Keploy's samples, then get the app ready to run on your machine:
+
+<Stack only="gin">
+
+1. `rm -rf keploy` deletes recordings that ship with the sample, made by an older Keploy. Every test you replay will be your own.
+2. The compose file expects a Docker network named `keploy-network`, so create it before starting MongoDB.
+3. The app looks for MongoDB at `mongoDb:27017`, a name that only resolves inside Docker. `sed` points it at `localhost`, where Compose publishes the port.
+
+</Stack>
+
+<Stack only="echo">
+
+1. `rm -rf keploy` deletes recordings that ship with the sample. In my run, their old Postgres mocks crashed the replay before a single test ran.
+2. `docker compose up -d postgres` starts Postgres and seeds the `url_map` table.
+3. The app looks for Postgres at `postgresDb`, a name that only resolves inside Docker. `sed` points it at `localhost`; then build the binary.
+
+</Stack>
+
+Compose also warns that the file's `version` attribute is obsolete. That's harmless, and the practice terminal leaves it out.
+
+<Checkpoint id="clone">
+
+<Stack only="gin" inline>a running `mongoDB` container in `docker ps`.</Stack><Stack only="echo" inline>a running `postgresDb` container in `docker ps`.</Stack>
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<Stack only="gin">
+<SimTerminal
+  id="clone"
+  cwd="~"
+  maxHeight="24rem"
+  commands={[
+    { cmd: "git clone https://github.com/keploy/samples-go.git", run: "03-clone", cwd: "~" },
+    { cmd: "cd samples-go/gin-mongo", out: [], cwd: "~" },
+    { cmd: "rm -rf keploy", out: [], cwd: "~/samples-go/gin-mongo" },
+    { cmd: "docker network create keploy-network", out: ["ee8032ae410fd2f8c4461477684bcea18b0b76ea7015accd3b36e152e167c28c"], cwd: "~/samples-go/gin-mongo" },
+    { cmd: "docker compose up -d mongo", out: [" Container mongoDB Creating", " Container mongoDB Created", " Container mongoDB Starting", " Container mongoDB Started"], cwd: "~/samples-go/gin-mongo" },
+    { cmd: "sed -i 's/mongoDb:27017/localhost:27017/' main.go", out: [], cwd: "~/samples-go/gin-mongo" },
+  ]}
+  label="Setup terminal"
+/>
+</Stack>
+<Stack only="echo">
+<SimTerminal
+  id="clone"
+  cwd="~"
+  maxHeight="24rem"
+  commands={[
+    { cmd: "git clone https://github.com/keploy/samples-go.git", run: "03-clone", cwd: "~" },
+    { cmd: "cd samples-go/echo-sql", out: [], cwd: "~" },
+    { cmd: "rm -rf keploy", out: [], cwd: "~/samples-go/echo-sql" },
+    { cmd: "docker compose up -d postgres", out: [" Network echo-sql_babab Creating", " Network echo-sql_babab Creating", " Network echo-sql_babab Created", " Network echo-sql_babab Created", " Container postgresDb Creating", " Container postgresDb Created", " Container postgresDb Starting", " Container postgresDb Started"], cwd: "~/samples-go/echo-sql" },
+    { cmd: "sed -i 's/host: \"postgresDb\"/host: \"localhost\"/' main.go", out: [], cwd: "~/samples-go/echo-sql" },
+    { cmd: "go build -o echo-psql-url-shortener .", run: "05-echo-build", cwd: "~/samples-go/echo-sql" },
+  ]}
+  label="Setup terminal"
+/>
+</Stack>
+</Lab>
+</Slide>
+
+<Slide id="record">
+<Lesson>
+
+`keploy record -c` runs your app's start command and records everything that crosses the network. You need two terminals: one for Keploy, one to send requests.
+
+Wait for `Started ingress forwarding` in the first terminal. It means Keploy is listening on your app's port. Then send the two requests: the first creates a short link, the second follows it. The code is a hash of the URL, so you'll get the same <Stack only="gin" inline>`7fvpSsFg`</Stack><Stack only="echo" inline>`4KepjkTT`</Stack> I did.
+
+Stop with **Ctrl+C**. Keploy then replays what it just recorded to check the tests are stable before it exits.
+
+<Callout type="warning" title="Sending requests from PowerShell?">
+
+In Windows PowerShell 5.1, `curl` means `Invoke-WebRequest` and fails with `A positional parameter cannot be found that accepts argument 'POST'`. Use your WSL terminal, or `curl.exe`.
+
+</Callout>
+
+<Checkpoint id="record">
+
+two `Keploy has captured test cases` lines, then `Total test passed: 2`.
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<Stack only="gin">
+<RecordSession
+  cwd="~/samples-go/gin-mongo"
+  record={{ cmd: 'keploy record -c "go run main.go handler.go"', run: "10-gin-record" }}
+  requests={[
+    { cmd: `curl --request POST --url http://localhost:8080/url --header "content-type: application/json" --data '{"url": "https://keploy.io"}'`, run: "11-gin-post" },
+    { cmd: "curl -i http://localhost:8080/7fvpSsFg", run: "12-gin-get" },
+  ]}
+/>
+</Stack>
+<Stack only="echo">
+<RecordSession
+  cwd="~/samples-go/echo-sql"
+  record={{ cmd: 'keploy record -c "./echo-psql-url-shortener"', run: "40-echo-record" }}
+  requests={[
+    { cmd: `curl --request POST --url http://localhost:8082/url --header "content-type: application/json" --data '{"url": "https://github.com"}'`, run: "41-echo-post" },
+    { cmd: "curl -i http://localhost:8082/4KepjkTT", run: "42-echo-get" },
+  ]}
+/>
+</Stack>
+</Lab>
+</Slide>
+
+<Slide id="inspect">
+<Lesson>
+
+Recording left a `keploy/` folder next to your code. Click through the files; they're the real ones from my run, and underlined lines have notes.
+
+- **Keploy added noise rules by itself.** The response's `ts` timestamp and the `Date` header change on every run, so Keploy ignores them when comparing. <GoTo id="noise">See what happens without them</GoTo>.
+- **The mocks don't go in git.** The generated `keploy/.gitignore` excludes `mocks.yaml`. Keploy uploaded the mocks to your account, and `config.yaml` holds the hash CI uses to fetch them.
+
+<Checkpoint id="inspect">
+
+`post-url-1.yaml`, <Stack only="gin" inline>`get-7fvpssfg-1.yaml`</Stack><Stack only="echo" inline>`get-4kepjktt-1.yaml`</Stack> and `mocks.yaml` under `keploy/test-set-0/`.
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<Stack only="gin">
+  <KeployFiles stack="gin" />
+</Stack>
+<Stack only="echo">
+  <KeployFiles stack="echo" />
+</Stack>
+</Lab>
+</Slide>
+
+<Slide id="replay">
+<Lesson>
+
+Stop the database, then run the tests. This is the part that shows what Keploy does.
+
+`--delay 10` gives the app 10 seconds to start before Keploy sends requests. <Stack only="gin" inline>`go run` compiles first and the sample sleeps two seconds before connecting, so the default of 5 can be too short.</Stack><Stack only="echo" inline>The default is 5.</Stack>
+
+Both tests pass with no database running. When the app connected and queried, Keploy's proxy answered from `mocks.yaml`. Your Go code didn't change, and you didn't write a mock.
+
+<Checkpoint id="replay">
+
+`Total test passed: 2` and `Total test failed: 0`, with no database container in `docker ps`.
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<Stack only="gin">
+<SimTerminal
+  id="replay"
+  cwd="~/samples-go/gin-mongo"
+  mode="replay"
+  commands={[
+    { cmd: "docker compose stop mongo", out: [" Container mongoDB Stopping", " Container mongoDB Stopped"], cwd: "~/samples-go/gin-mongo" },
+    { cmd: 'keploy test -c "go run main.go handler.go" --delay 10', run: "20-gin-test", cwd: "~/samples-go/gin-mongo" },
+  ]}
+  label="Replay terminal"
+/>
+</Stack>
+<Stack only="echo">
+<SimTerminal
+  id="replay"
+  cwd="~/samples-go/echo-sql"
+  mode="replay"
+  commands={[
+    { cmd: "docker compose stop postgres", out: [" Container postgresDb Stopping", " Container postgresDb Stopped"], cwd: "~/samples-go/echo-sql" },
+    { cmd: 'keploy test -c "./echo-psql-url-shortener" --delay 10', run: "50-echo-test", cwd: "~/samples-go/echo-sql" },
+  ]}
+  label="Replay terminal"
+/>
+</Stack>
+</Lab>
+</Slide>
+
+<Slide id="break">
+<Lesson>
+
+Passing tests only mean something if they fail when behavior changes. Change the redirect's status code and replay:
+
+<Stack only="gin">
+
+```diff title="handler.go, line 66"
+- c.Redirect(http.StatusSeeOther, u.URL)
++ c.Redirect(http.StatusMovedPermanently, u.URL)
+```
+
+Keploy prints a table for each failure: recorded `303`, now `301`. Browsers cache a `301` and keep sending people to the old target after the link changes; a `303` isn't cached.
+
+</Stack>
+
+<Stack only="echo">
+
+```diff title="handler.go, line 168"
+- err = c.Redirect(http.StatusPermanentRedirect, entry.RedirectURL)
++ err = c.Redirect(http.StatusTemporaryRedirect, entry.RedirectURL)
+```
+
+Keploy prints a table for each failure: recorded `308`, now `307`. Browsers cache a `308` and keep sending people to the old target after the link changes; a `307` isn't cached.
+
+</Stack>
+
+Undo the change with `git checkout handler.go`.
+
+<Checkpoint id="break">
+
+`Total test failed: 1` and an `EXPECT STATUS` / `ACTUAL STATUS` table.
+
+</Checkpoint>
+
+</Lesson>
+<Lab>
+<Stack only="gin">
+<SimTerminal
+  id="break"
+  cwd="~/samples-go/gin-mongo"
+  mode="replay"
+  commands={[
+    { cmd: "sed -i 's/StatusSeeOther/StatusMovedPermanently/' handler.go", out: [], cwd: "~/samples-go/gin-mongo" },
+    { cmd: 'keploy test -c "go run main.go handler.go" --delay 10', run: "30-gin-break", cwd: "~/samples-go/gin-mongo" },
+  ]}
+  label="Break-it terminal"
+/>
+</Stack>
+<Stack only="echo">
+<SimTerminal
+  id="break"
+  cwd="~/samples-go/echo-sql"
+  mode="replay"
+  commands={[
+    { cmd: "sed -i 's/StatusPermanentRedirect/StatusTemporaryRedirect/' handler.go", out: [], cwd: "~/samples-go/echo-sql" },
+    { cmd: "go build -o echo-psql-url-shortener .", run: "05-echo-build", cwd: "~/samples-go/echo-sql" },
+    { cmd: 'keploy test -c "./echo-psql-url-shortener" --delay 10', run: "60-echo-break", cwd: "~/samples-go/echo-sql" },
+  ]}
+  label="Break-it terminal"
+/>
+</Stack>
+</Lab>
+</Slide>
+
+<Slide id="noise">
+<Lesson>
+
+Some values differ on every run however correct your code is: timestamps, generated IDs, the `Date` header. Keploy calls them **noise** and skips them when it compares responses.
+
+Flip the switch to delete the `body.ts` rule and replay. That's what I did: without the rule the test fails on `ts` alone, even though the short URL still matches.
+
+When your own endpoints return timestamps or IDs, set the rule once for the whole project in `keploy.yml`:
+
+```yaml title="keploy.yml"
+test:
+    globalNoise:
+        global:
+            body:
+                ts: []
+```
+
+An empty list means "ignore this field, whatever its value". I checked it on the Gin app: with the rule removed from the test file and added here, both tests pass.
+
+</Lesson>
+<Lab>
+<Stack only="gin">
+  <NoiseLab
+    cwd="~/samples-go/gin-mongo"
+    command='keploy test -c "go run main.go handler.go" --delay 10'
+    passRun="20-gin-test"
+    failRun="31-gin-nonoise"
+  />
+</Stack>
+<Stack only="echo">
+  <NoiseLab
+    cwd="~/samples-go/echo-sql"
+    command='keploy test -c "./echo-psql-url-shortener" --delay 10'
+    passRun="50-echo-test"
+    failRun="61-echo-nonoise"
+  />
+</Stack>
+</Lab>
+</Slide>
+
+<Slide id="problems" layout="single">
+
+Everything here happened during my run. Open the one that matches what you're seeing.
+
+<Accordion className="not-prose mt-6 rounded-xl border border-rule bg-surface px-5">
+  <AccordionItem value="defender">
+    <AccordionTrigger className="py-4 text-[16px]">Defender quarantined keploy.exe on Windows</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      Running it then fails with `Operation did not complete successfully because the file contains a virus or potentially unwanted software`. Use WSL2 with Ubuntu, as in step 1.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="oss">
+    <AccordionTrigger className="py-4 text-[16px]">Tests record, but MongoDB or Postgres calls aren't mocked</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      Run `keploy` and check the banner. If it says `OPEN SOURCE`, you have the GitHub build, which mocks only HTTP and MySQL. Reinstall with the keploy.io installer from step 1.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="login">
+    <AccordionTrigger className="py-4 text-[16px]">keploy login times out</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      The sign-in link is valid for one minute. Sign in at app.keploy.io first, then run `keploy login` again. `keploy login --manual-login` takes an API key instead, but the key needs read access: in a team workspace where I only had the user role, Keploy refused with `you do not hold the "read" scope`.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="port">
+    <AccordionTrigger className="py-4 text-[16px]">Ingress hook failed: address already in use</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      I got `ingress proxy failed to listen on 0.0.0.0:8080: bind: address already in use` because an old container still held port 8080. Keploy needs your app's port free; find the culprit with `sudo ss -ltnp | grep 8080`.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="stale">
+    <AccordionTrigger className="py-4 text-[16px]">Replay fails with "missing PostgresV3Session mock"</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      That came from the `test-set-0` shipped with the echo-sql sample. Keploy replays every test set in the folder, the old one ran first, and its mocks couldn't answer the app's connection handshake, so the app exited before any test ran. Delete the shipped `keploy/` folder before recording, or run only your set with `-t test-set-1`.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="next-block">
+    <AccordionTrigger className="py-4 text-[16px]">What's the KEPLOY NEXT block at the end of a run?</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      Keploy 3.8 prints a block between `=== KEPLOY NEXT ===` lines after each run. It's written for AI coding agents that drive Keploy; you can ignore it. The terminals on this page leave it out.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="dns">
+    <AccordionTrigger className="py-4 text-[16px]">"Keploy has taken control of the DNS resolution mechanism"</AccordionTrigger>
+    <AccordionContent className="text-[15.5px] leading-relaxed text-ink/85">
+      An INFO line, not an error. Keploy runs its own DNS server while it records, so hostname lookups your app makes are captured and replayed like any other call.
+    </AccordionContent>
+  </AccordionItem>
+</Accordion>
+
+</Slide>
+
+<Slide id="next" layout="single">
+
+You recorded real traffic, replayed it with the database off, and watched a one-line change fail the suite. Some places to take it from here:
+
+- **Run it in CI.** Commit `keploy/`; the generated `.gitignore` already leaves out mocks and reports. In CI, set `KEPLOY_API_KEY`, install Keploy and run the same `keploy test` command. Keploy downloads the mocks by the hash in `config.yaml`.
+- **Record more cases.** Run `keploy record` again and send other requests, such as an unknown short code that returns 404. Each run adds a test set.
+- **Try your own service.** Nothing here is specific to the sample. Point `keploy record -c` at the command that starts your app.
+- **Read the reference.** [Keploy's docs](https://keploy.io/docs/) cover configuration and other languages, and the [Go samples](https://github.com/keploy/samples-go) include gRPC, MySQL and Redis apps.
+
+Written by Mihir Katoch. The raw terminal captures and generated files behind every terminal on this page are in the [recordings folder](https://github.com/0xMihirK/keploy-go-quickstart-tutorial/tree/main/recordings) of the site's repository.
+
+</Slide>

@@ -1,0 +1,20 @@
+Script started on 2026-10-02 19:47:55+00:00 [<not executed on terminal>]
+🐰 Keploy: 2026-10-02T19:47:55.503855638Z 	[34mINFO[0m	Starting Keploy	{"version": "3.8.58", "apiServerURL": "https://api.keploy.io", "inDocker": false}
+
+Opening browser for authentication...
+
+If the browser does not open automatically, please visit:
+https://app.keploy.io/signin/integration/auth?method=code&code=01M3Z2HD04Q3ZVGRMNXJZA7B0W
+
+Waiting for authentication...
+Logged in successfully!
+You are on the Keploy Free plan.
+
+🤖  Use Keploy with your AI agent? Wire Keploy's MCP into your editor:
+      keploy mcp-install --editor <name>   (or --all for every detected agent)
+    Supported names: claude-code, cursor, github-copilot, antigravity,
+                     codex, windsurf, claude-desktop.
+    Or visit the install hub (with copy-paste buttons) at the same URL
+    that just authenticated this CLI, under /integration-testing.
+
+Script done on 2026-10-02 19:48:06+00:00 [COMMAND_EXIT_CODE="0"]

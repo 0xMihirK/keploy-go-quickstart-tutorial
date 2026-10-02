@@ -1,0 +1,29 @@
+# docker compose output, captured 2026-10-03 (Docker Desktop 29.7.2, non-TTY).
+# Each run also printed: level=warning msg="docker-compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+
+## gin-mongo$ docker network create keploy-network
+ee8032ae410fd2f8c4461477684bcea18b0b76ea7015accd3b36e152e167c28c
+
+## gin-mongo$ docker compose up -d mongo
+ Container mongoDB Creating
+ Container mongoDB Created
+ Container mongoDB Starting
+ Container mongoDB Started
+
+## gin-mongo$ docker compose stop mongo
+ Container mongoDB Stopping
+ Container mongoDB Stopped
+
+## echo-sql$ docker compose up -d postgres
+ Network echo-sql_babab Creating
+ Network echo-sql_babab Creating
+ Network echo-sql_babab Created
+ Network echo-sql_babab Created
+ Container postgresDb Creating
+ Container postgresDb Created
+ Container postgresDb Starting
+ Container postgresDb Started
+
+## echo-sql$ docker compose stop postgres
+ Container postgresDb Stopping
+ Container postgresDb Stopped

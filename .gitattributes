@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Raw terminal captures: byte offsets must match the .tm timing files.
+recordings/terminal/*.ansi -text
+recordings/terminal/*.tm -text
