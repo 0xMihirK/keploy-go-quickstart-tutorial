@@ -16,7 +16,7 @@ export interface ExplorerFile {
   path: string; // e.g. "keploy/test-set-0/tests/post-url-1.yaml"
   content: string;
   notes: Note[];
-  /** Shown above the code, e.g. "1 of 5 mocks shown". */
+  /** Shown above the code, e.g. "mock-3 of 5". */
   caption?: string;
 }
 
@@ -40,6 +40,20 @@ function YamlLine({ text }: { text: string }) {
       <span className="text-tape-dim">{colon}</span>
       <span className={valueCls}>{rest}</span>
     </>
+  );
+}
+
+/** Note text with `backtick` spans shown as inline code. */
+function NoteBody({ text }: { text: string }) {
+  // split() with a capture group puts the code spans at odd indexes.
+  return text.split(/`([^`]+)`/).map((part, i) =>
+    i % 2 ? (
+      <code key={i} className="rounded bg-white/[0.08] px-1 py-px font-mono text-[0.88em] text-tape-ink">
+        {part}
+      </code>
+    ) : (
+      part
+    ),
   );
 }
 
@@ -205,7 +219,9 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
             <p className="text-[14px] font-semibold text-[#ffb98a]">
               Line {current.line + 1}: {current.note.title}
             </p>
-            <p className="mt-1 text-[14px] leading-relaxed text-[#c8d0dc]">{current.note.body}</p>
+            <p className="mt-1 text-[14px] leading-relaxed text-[#c8d0dc]">
+              <NoteBody text={current.note.body} />
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 text-[12px]">
             {anchors.map((x, i) => (

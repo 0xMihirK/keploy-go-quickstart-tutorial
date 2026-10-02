@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, ArrowRight, Check, List, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, Check, List, RotateCcw } from "lucide-react";
 
 import {
   Sheet,
@@ -36,10 +36,8 @@ function SlideHeading({ id }: { id: string }) {
   const meta = SLIDES[indexOf(id)];
   const stepNo = STEP_IDS.indexOf(id);
   const progress = useProgress();
-  // The overview title is the page's h1; every other slide title is an h2.
-  const Heading = id === "overview" ? "h1" : "h2";
   return (
-    <header className="mb-6">
+    <header className="mb-6 tall-short:mb-4">
       <p className="text-[14px] font-medium text-graphite">
         {stepNo >= 0 ? (
           <>
@@ -56,18 +54,40 @@ function SlideHeading({ id }: { id: string }) {
           "After the steps"
         )}
       </p>
-      <Heading
+      {/* Every slide title is an h2; the page's h1 sits in the site header. */}
+      <h2
         id={`${id}-title`}
         className={cn(
           "mt-1.5 font-semibold tracking-[-0.03em] text-balance text-ink",
           id === "overview"
-            ? "text-[2.4rem] leading-[1.02] sm:text-[3rem]"
+            ? "text-[2.4rem] leading-[1.02] sm:text-[3rem] tall-short:text-[2.4rem]"
             : "text-[1.85rem] leading-[1.1] sm:text-[2.1rem]",
         )}
       >
         {meta.title}
-      </Heading>
+      </h2>
     </header>
+  );
+}
+
+/** Closing summary on the last slide: progress plus what the steps covered. */
+function Recap() {
+  const progress = useProgress();
+  const done = STEP_IDS.filter((id) => progress[id]).length;
+  return (
+    <div className="not-prose rounded-xl border border-replay/40 bg-replay/[0.06] px-4 py-3.5">
+      <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+        <Check className="size-4 text-replay-text" aria-hidden="true" />
+        {done === STEP_IDS.length
+          ? `All ${STEP_IDS.length} steps checked off`
+          : `${done} of ${STEP_IDS.length} steps checked off`}
+      </p>
+      <ul className="mt-2 grid gap-1 text-[15px] leading-snug text-ink/85">
+        <li>You recorded two requests as tests, and Keploy saved the app&apos;s MongoDB calls as mocks.</li>
+        <li>You replayed both tests with MongoDB stopped, and both passed.</li>
+        <li>You changed a redirect from 303 to 301, and the replay failed on it.</li>
+      </ul>
+    </div>
   );
 }
 
@@ -88,39 +108,40 @@ export function Slide({
   const { index, dir, moved } = useDeck();
   const reduce = useReducedMotion();
   const active = index === indexOf(id);
+  // View Transitions animate slide changes where supported; this is the fallback.
+  // No key on the wrapper: remounting would wipe terminal state in the slide.
+  const fade = active && moved && !reduce && !supportsViewTransitions();
 
   return (
     <SlideCtx.Provider value={id}>
       <section
+        id={id}
         data-slide={id}
         data-active={active ? "" : undefined}
         aria-labelledby={`${id}-title`}
         className="tall:h-full"
       >
         <motion.div
-          key={active ? "on" : "off"}
-          // View Transitions animate slide changes where supported; this is the fallback.
-          initial={
-            reduce || !active || !moved || supportsViewTransitions()
-              ? false
-              : { opacity: 0, x: dir * 24 }
-          }
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3, ease: [0.22, 0.8, 0.3, 1] }}
+          initial={false}
+          animate={fade ? { opacity: [0, 1], x: [dir * 24, 0] } : { opacity: 1, x: 0 }}
+          transition={fade ? { duration: 0.3, ease: [0.22, 0.8, 0.3, 1] } : { duration: 0 }}
           className="tall:h-full"
         >
           {layout === "split" ? (
             // Stacked (small or short windows): one centred, readable column.
-            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
+            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
               {children}
             </div>
           ) : (
-            <div data-scroll className="tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain">
-              <div className="prose mx-auto w-full max-w-3xl py-8 tall:my-auto tall:py-12">
+            // No region label here: the section is already labelled by its title.
+            <ScrollColumn className="tall:h-full">
+              <div className="prose mx-auto w-full max-w-3xl py-8 tall:pt-12 tall:pb-12 tall-short:pt-6">
                 <SlideHeading id={id} />
+                {/* The last slide opens with a short recap before its links. */}
+                {id === "next" && <Recap />}
                 {children}
               </div>
-            </div>
+            </ScrollColumn>
           )}
         </motion.div>
       </section>
@@ -128,38 +149,103 @@ export function Slide({
   );
 }
 
+/**
+ * A column that scrolls on its own in the side-by-side layout, with a
+ * "More below" pill while content continues past the bottom edge.
+ */
+function ScrollColumn({
+  label,
+  className,
+  scrollClassName,
+  children,
+  ...rest
+}: {
+  /** Names the column as a region; leave out when something else labels it. */
+  label?: string;
+  className?: string;
+  scrollClassName?: string;
+  children: React.ReactNode;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 8);
+    // Fires when the slide is shown (display: none to block) and when content grows.
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    el.addEventListener("scroll", check, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("scroll", check);
+    };
+  }, []);
+
+  return (
+    <div className={cn("relative min-w-0", className)} {...rest}>
+      <div
+        ref={ref}
+        data-scroll
+        tabIndex={0}
+        role={label ? "region" : undefined}
+        aria-label={label}
+        className={cn(
+          "outline-none focus-visible:ring-2 focus-visible:ring-orange/60 tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain",
+          scrollClassName,
+        )}
+      >
+        {children}
+      </div>
+      {/* Mouse shortcut only; the column itself is focusable and scrolls with the keyboard. */}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={() => ref.current?.scrollBy({ top: ref.current.clientHeight * 0.7 })}
+        className={cn(
+          "absolute bottom-3 left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-rule bg-surface/95 px-3 py-1 text-[12.5px] font-medium text-graphite shadow-sm backdrop-blur transition-opacity duration-200 hover:text-ink tall:inline-flex",
+          more ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
+        More below
+        <ArrowDown className="size-3.5" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 /** Explanation column, with the slide title on top. */
 export function Lesson({ children }: { children: React.ReactNode }) {
   const id = useContext(SlideCtx);
   return (
-    <div
-      data-scroll
-      tabIndex={0}
-      aria-label="Lesson"
-      className="min-w-0 pt-8 pb-6 outline-none focus-visible:ring-2 focus-visible:ring-orange/60 tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain tall:py-10 tall:pr-12"
+    // Top-aligned so slide titles sit at the same height on every slide.
+    <ScrollColumn
+      label="Lesson"
+      className="tall:h-full"
+      scrollClassName="pt-8 pb-6 tall:pt-12 tall:pr-12 tall:pb-10 tall-short:pt-6 tall-short:pb-6"
     >
-      {/* my-auto centres short content and still scrolls from the top when long. */}
-      <div className="tall:my-auto">
+      <div>
         <SlideHeading id={id} />
         <div className="prose text-[16.5px]">{children}</div>
       </div>
-    </div>
+    </ScrollColumn>
   );
 }
 
 /** Interactive column. */
 export function Lab({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      data-scroll
-      tabIndex={0}
-      aria-label="Practice"
-      className="min-w-0 pb-8 outline-none focus-visible:ring-2 focus-visible:ring-orange/60 tall:flex tall:h-full tall:flex-col tall:overflow-y-auto tall:overscroll-contain tall:border-l tall:border-rule tall:py-10 tall:pl-12"
+    <ScrollColumn
+      label="Practice"
+      data-lab-col=""
+      className="tall:h-full"
+      scrollClassName="pb-8 tall:border-l tall:border-rule tall:pt-12 tall:pb-10 tall:pl-12 tall-short:pt-6 tall-short:pb-6"
     >
-      <div data-lab className="tall:my-auto">
-        {children}
-      </div>
-    </div>
+      <div data-lab>{children}</div>
+    </ScrollColumn>
   );
 }
 
@@ -179,6 +265,9 @@ export function DeckController() {
   const first = useRef(true);
 
   useEffect(() => {
+    // Slides carry their ids for no-JS anchors; stop the browser from restoring
+    // or jumping scroll positions when the hash changes.
+    history.scrollRestoration = "manual";
     // Old anchors from the long-form version still land on the right slide.
     const alias: Record<string, string> = {
       top: "overview",

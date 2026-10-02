@@ -54,6 +54,10 @@ export interface StreamHandlers {
   instant?: boolean;
   /** Speed multiplier for short gaps; keeps fast bursts from feeling sluggish. */
   speed?: number;
+  /** While this returns true, output holds before the next line. */
+  isPaused?: () => boolean;
+  /** ms to linger after printing line i (e.g. so a banner can be read). */
+  holdAfter?: (index: number) => number;
 }
 
 /** Streams lines[from, to) with their recorded pacing. */
@@ -61,7 +65,7 @@ export async function streamLines(
   lines: RunLine[],
   from: number,
   to: number,
-  { onLine, onWait, signal, instant, speed = 1 }: StreamHandlers,
+  { onLine, onWait, signal, instant, speed = 1, isPaused, holdAfter }: StreamHandlers,
 ) {
   for (let i = from; i < Math.min(to, lines.length); i++) {
     const line = lines[i];
@@ -77,7 +81,10 @@ export async function streamLines(
         await sleep(8, signal);
       }
     }
+    while (isPaused?.()) await sleep(120, signal);
     onLine(line, i);
+    const hold = instant ? 0 : (holdAfter?.(i) ?? 0);
+    if (hold) await sleep(hold, signal);
   }
 }
 

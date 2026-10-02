@@ -19,7 +19,8 @@ const OTHER_ESC = /\x1b(\[[0-9;?]*[A-Za-ln-z]|\][^\x07]*\x07|[()][A-Z0-9])/g;
 mkdirSync(OUT, { recursive: true });
 
 function clean(line) {
-  return line.replace(OTHER_ESC, "").replace(/\x00/g, "");
+  // NUL bytes, raw or in the caret form "^@" the tty echoed them as.
+  return line.replace(OTHER_ESC, "").replace(/\x00|\^@/g, "");
 }
 
 for (const file of readdirSync(SRC).filter((f) => f.endsWith(".ansi"))) {

@@ -22,7 +22,7 @@ import {
   type HTMLMotionProps,
   type MotionProps,
 } from "motion/react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/reduced-motion";
@@ -252,7 +252,7 @@ export const TypingAnimation = ({
   );
 };
 
-type TerminalMode = "record" | "replay" | null;
+export type TerminalMode = "record" | "replay" | "passed" | "failed" | null;
 
 interface TerminalProps {
   children: React.ReactNode;
@@ -284,6 +284,26 @@ interface TerminalProps {
 }
 
 function ModeBadge({ mode }: { mode: Exclude<TerminalMode, null> }) {
+  if (mode === "passed" || mode === "failed") {
+    const pass = mode === "passed";
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+          pass
+            ? "border-replay/40 bg-replay/10 text-[#5fe0d8]"
+            : "border-record/40 bg-record/10 text-[#ff8a8e]",
+        )}
+      >
+        {pass ? (
+          <Check className="size-3" aria-hidden="true" />
+        ) : (
+          <X className="size-3" aria-hidden="true" />
+        )}
+        {pass ? "Passed" : "Failed"}
+      </span>
+    );
+  }
   return mode === "record" ? (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-record/40 bg-record/10 px-2 py-0.5 text-[11px] font-medium text-[#ff8a8e]">
       <span className="rec-pulse size-1.5 rounded-full bg-record" />
@@ -454,7 +474,7 @@ export const Terminal = ({
             {title}
           </span>
         )}
-        <span className="ml-auto flex shrink-0 items-center gap-2">
+        <span data-controls="" className="ml-auto flex shrink-0 items-center gap-2">
           {mode && <ModeBadge mode={mode} />}
           {controls}
           {copyText && <CopyButton text={copyText} />}

@@ -6,28 +6,22 @@ import { Prompt } from "./prompt";
 import { ArrowRight } from "lucide-react";
 import { next } from "@/lib/slides";
 
-
-// Verbatim lines from the captured runs in recordings/terminal (10/20, 40/50).
-const LOOP: Record<
-  "gin",
-  { dir: string; record: string; logs: string[]; test: string; time: string; stop: string }
-> = {
-  gin: {
-    dir: "~/samples-go/gin-mongo",
-    record: 'keploy record -c "go run main.go handler.go"',
-    logs: [
-      "🐰 Keploy: 2026-10-02T19:53:44.909036735Z \t\x1b[34mINFO\x1b[0m\tKeploy agent is ready to record test cases and mocks.",
-      '🐰 Keploy(agent): 2026-10-02T19:53:47Z\t\x1b[34mINFO\x1b[0m\tStarted ingress forwarding\t{"orig_port": 8080, "new_port": 38747}',
-      '🐰 Keploy: 2026-10-02T19:53:48.488940284Z \t\x1b[34mINFO\x1b[0m\t🟠 Keploy has captured test cases for the user\'s application.\t{"path": "/home/dev/samples-go/gin-mongo/keploy/test-set-0/tests", "testcase name": "post-url-1"}',
-    ],
-    stop: "docker compose stop mongo",
-    test: 'keploy test -c "go run main.go handler.go" --delay 10',
-    time: "10.17 s",
-  },
+// Verbatim lines from the captured runs in recordings/terminal (10-gin-record, 20-gin-test).
+const LOOP = {
+  dir: "~/samples-go/gin-mongo",
+  record: 'keploy record -c "go run main.go handler.go"',
+  logs: [
+    "🐰 Keploy: 2026-10-02T19:53:44.909036735Z \t\x1b[34mINFO\x1b[0m\tKeploy agent is ready to record test cases and mocks.",
+    '🐰 Keploy(agent): 2026-10-02T19:53:47Z\t\x1b[34mINFO\x1b[0m\tStarted ingress forwarding\t{"orig_port": 8080, "new_port": 38747}',
+    '🐰 Keploy: 2026-10-02T19:53:48.488940284Z \t\x1b[34mINFO\x1b[0m\t🟠 Keploy has captured test cases for the user\'s application.\t{"path": "/home/dev/samples-go/gin-mongo/keploy/test-set-0/tests", "testcase name": "post-url-1"}',
+  ],
+  stop: "docker compose stop mongo",
+  test: 'keploy test -c "go run main.go handler.go" --delay 10',
+  time: "10.17 s",
 };
 
-function Loop({ stack }: { stack: "gin" }) {
-  const l = LOOP[stack];
+function Loop() {
+  const l = LOOP;
   const p = <Prompt cwd={l.dir} />;
   return (
     <Terminal
@@ -72,7 +66,7 @@ function Loop({ stack }: { stack: "gin" }) {
 export function LoopTerminal() {
   return (
     <div className="not-prose">
-      <Loop stack="gin" />
+      <Loop />
     </div>
   );
 }

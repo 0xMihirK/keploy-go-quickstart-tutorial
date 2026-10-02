@@ -10,15 +10,21 @@ import { useReducedMotion } from "@/lib/reduced-motion";
 import { cn } from "@/lib/utils";
 import {
   EntryLine,
+  MAX_LOOPS,
   PromptInput,
   StatusBar,
-  useShell,
+  outcomeMode,
   outcomeRing,
+  useAnnounce,
+  usePageVisible,
+  useShell,
   type Cmd,
 } from "./sim-terminal";
 
 const READY = /Started ingress forwarding/;
 const CAPTURED = /captured test cases/;
+// How long Terminal 1 comes forward to show each captured test case.
+const PEEK_MS = 1400;
 
 type Phase = "start" | "booting" | "listening" | "stopping" | "done";
 
@@ -43,15 +49,21 @@ export function RecordSession({
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>("start");
   const [sent, setSent] = useState(0);
+  // A request is out and its capture hasn't shown in Terminal 1 yet.
+  const [sending, setSending] = useState(false);
+  const [cycles, setCycles] = useState(0);
   const [autoA, setAutoA] = useState(false);
   const [autoB, setAutoB] = useState(false);
   const [driver, setDriver] = useState<"demo" | "you">("demo");
-  const [announce, setAnnounce] = useState("");
+  const [announce, say] = useAnnounce(driver);
   const [anchor, setAnchor] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const paneA = useRef<HTMLDivElement>(null);
   const inView = useInView(rootRef, { amount: 0.3 });
+  const visible = usePageVisible();
   const stopping = useRef(false);
+  // Bumped on reset, so async steps from a previous cycle don't act.
+  const gen = useRef(0);
   const [front, setFront] = useState<"a" | "b">("a");
   // Terminal 2 appears once Keploy is listening for requests.
   const showB =
@@ -63,82 +75,103 @@ export function RecordSession({
   const startRecord = async (typed: string) => {
     a.push("cmd", typed, cwd);
     setPhase("booting");
-    setAnnounce("Keploy is starting the app in record mode.");
-    await a.exec({ ...record, pauseAt: READY.source });
+    say("Keploy is starting the app in record mode.");
+    if ((await a.exec({ ...record, pauseAt: READY.source }, { demo: driver === "demo" })) === "aborted") {
+      // Only a failed load gets here; stop the demo so it doesn't retry forever.
+      setPhase("start");
+      setDriver("you");
+      return;
+    }
     setPhase("listening");
     setFront("b");
-    setAnnounce(
-      "Keploy is recording. Send a request from the second terminal.",
-    );
+    say("Keploy is recording. Send a request from the second terminal.");
   };
 
   const sendRequest = async (typed: string) => {
+    const g = gen.current;
     const c = requests[sent];
+    setSending(true);
     b.push("cmd", typed, cwd);
-    await b.exec(c);
-    // Keploy logs the captured test case in the recording pane.
-    await a.stream(CAPTURED);
+    if ((await b.exec(c)) === "aborted") {
+      if (gen.current === g) setSending(false);
+      return;
+    }
+    // Count it before the capture streams, so the hint moves on and the same
+    // request can't go out twice.
     const n = sent + 1;
     setSent(n);
-    setAnnounce(
+    // Keploy logs the captured test case in the recording pane: bring it
+    // forward so the line is visible, then hand Terminal 2 back.
+    setFront("a");
+    if ((await a.stream(CAPTURED)) === "aborted") return;
+    say(
       n < requests.length
         ? "Keploy captured a test case. Send the next request."
         : "Both test cases captured. Stop the recording with Control C in the first terminal.",
     );
+    await new Promise((r) => setTimeout(r, PEEK_MS));
+    if (gen.current !== g) return;
+    if (n < requests.length) setFront("b");
+    setSending(false);
   };
+
+  const canStop = phase === "listening" && sent >= requests.length && !sending;
 
   const stop = async (byReader: boolean) => {
     // Ctrl+C can arrive from the input and the pane at once; act on it once.
-    if (phase !== "listening" || sent < requests.length || stopping.current)
-      return;
+    if (!canStop || stopping.current) return;
     stopping.current = true;
     setFront("a");
     a.push("out", "^C");
     setPhase("stopping");
-    setAnnounce("Recording stopped. Keploy is replaying what it captured.");
-    await a.stream();
+    say("Recording stopped. Keploy is replaying what it captured.");
+    if ((await a.stream()) === "aborted") return;
     setPhase("done");
     if (byReader) setDone(id, true);
     setAnchor((n) => n + 1);
-    setAnnounce("Auto-replay finished: both tests passed.");
+    say("Auto-replay finished: both tests passed.");
   };
 
   const reset = () => {
+    gen.current++;
     stopping.current = false;
     a.reset();
     b.reset();
     setPhase("start");
     setFront("a");
     setSent(0);
+    setSending(false);
     setAutoA(false);
     setAutoB(false);
   };
 
-  const canStop = phase === "listening" && sent >= requests.length;
   const nextReq = requests[sent];
   const demo = driver === "demo";
+  // Finished and not going to loop again (reduced motion, or loop limit hit).
+  const stalled = phase === "done" && (reduce || cycles >= MAX_LOOPS);
+  const playing = demo && !stalled;
 
   // The demo loop: start the recorder, send both requests, Ctrl+C, hold on the
   // passing replay, then start over.
   useEffect(() => {
-    if (!demo || !inView || autoA || autoB) return;
+    if (!demo || !inView || !visible || autoA || autoB || stalled) return;
     let wait = 0;
     let act: (() => void) | null = null;
     if (phase === "start") {
       wait = 700;
       act = () => setAutoA(true);
-    } else if (phase === "listening" && !b.running && !a.running && nextReq) {
+    } else if (phase === "listening" && !b.running && !sending && nextReq) {
       wait = 900;
       act = () => setAutoB(true);
-    } else if (phase === "listening" && !b.running && canStop) {
+    } else if (canStop) {
       wait = 1300;
       act = () => void stop(false);
-    } else if (phase === "done" && !reduce) {
+    } else if (phase === "done") {
       wait = 7000;
-      act = reset;
-    } else if (phase === "listening" && a.paused && !b.running && nextReq) {
-      wait = 900;
-      act = () => setAutoB(true);
+      act = () => {
+        setCycles((n) => n + 1);
+        if (cycles + 1 < MAX_LOOPS) reset();
+      };
     }
     if (!act) return;
     const t = setTimeout(act, wait);
@@ -147,15 +180,16 @@ export function RecordSession({
   }, [
     demo,
     inView,
+    visible,
     autoA,
     autoB,
+    stalled,
     phase,
     sent,
-    a.running,
-    a.paused,
+    sending,
     b.running,
     canStop,
-    reduce,
+    cycles,
   ]);
 
   const takeOver = () => {
@@ -175,7 +209,8 @@ export function RecordSession({
   };
 
   const submitB = (raw: string) => {
-    const v = raw.trim().replace(/\s+/g, " ").replace(/'/g, '"');
+    // Fold the `\` line continuations from the page's multi-line curl.
+    const v = raw.trim().replace(/\\\s+/g, " ").replace(/\s+/g, " ").replace(/'/g, '"');
     if (!v) return b.push("cmd", "", cwd);
     if (phase === "start" || phase === "booting") {
       b.push("cmd", raw.trim(), cwd);
@@ -205,36 +240,47 @@ export function RecordSession({
     <button
       type="button"
       onClick={() => {
-        if (demo) return takeOver();
-        if (phase === "done") reset();
+        if (playing) {
+          takeOver();
+          a.pause();
+          b.pause();
+          return;
+        }
+        a.resume();
+        b.resume();
+        if (phase === "done") {
+          reset();
+          setCycles(0);
+        }
         setDriver("demo");
       }}
       className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-tape-dim transition-colors hover:bg-white/5 hover:text-tape-ink"
-      aria-label={demo ? "Pause the demo and type yourself" : "Play the demo"}
+      aria-label={playing ? "Pause the demo" : "Play the demo"}
     >
-      {demo ? (
+      {playing ? (
         <Pause className="size-3.5" aria-hidden="true" />
       ) : (
         <Play className="size-3.5" aria-hidden="true" />
       )}
-      <span>{demo ? "Pause" : "Play"}</span>
+      <span>{playing ? "Pause" : "Play"}</span>
     </button>
   );
 
   return (
     <div
       ref={rootRef}
-      className="not-prose my-7"
+      className="not-prose relative my-7"
       onPointerDown={(e) => {
         if (!(e.target as Element).closest("button")) takeOver();
       }}
     >
-      {/* Two overlapping windows, like a desktop: Terminal 2 pops up over
-          Terminal 1 once Keploy is listening; click either to bring it forward. */}
+      {/* Two overlapping windows, like a desktop: Terminal 2 pops up over the
+          lower right of Terminal 1 once Keploy is listening; click either to
+          bring it forward. Below sm they stack instead. */}
       <div className="grid grid-cols-[minmax(0,1fr)]">
         <motion.div
           ref={paneA}
-          style={{ gridArea: "1 / 1", zIndex: front === "a" ? 20 : 10 }}
+          style={{ zIndex: front === "a" ? 20 : 10 }}
           animate={{ scale: showB && front !== "a" ? 0.985 : 1 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
           onPointerDown={() => setFront("a")}
@@ -248,22 +294,20 @@ export function RecordSession({
             }
           }}
           role="group"
-          className={cn(
-            "relative rounded-xl outline-none transition-[margin] duration-500 focus-visible:ring-2 focus-visible:ring-orange/70",
-            showB && "mr-6 mb-12 sm:mr-10",
-          )}
+          className="relative col-start-1 row-start-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-orange/70"
           aria-label="Terminal 1: keploy record"
         >
           <Terminal
             sequence={false}
             title={`Terminal 1 — ${cwd}`}
-            mode={
-              phase === "stopping" || phase === "done"
+            mode={outcomeMode(
+              a.outcome,
+              phase === "stopping"
                 ? "replay"
-                : phase === "start"
-                  ? null
-                  : "record"
-            }
+                : phase === "booting" || phase === "listening"
+                  ? "record"
+                  : null,
+            )}
             controls={loopButton}
             copyText={record.cmd}
             height="min(19rem, 46dvh)"
@@ -320,8 +364,14 @@ export function RecordSession({
               key="t2"
               role="group"
               aria-label="Terminal 2: requests"
-              style={{ gridArea: "1 / 1", zIndex: front === "b" ? 20 : 10 }}
-              className="relative mt-12 ml-6 self-start sm:ml-10"
+              style={{ zIndex: front === "b" ? 20 : 10 }}
+              className={cn(
+                // Offset so Terminal 2's bottom always sticks out 4.5rem below
+                // Terminal 1 (heights match the two Terminal height props).
+                "relative col-start-1 row-start-2 mt-2 self-start sm:row-start-1 sm:mt-[calc(min(19rem,46dvh)_-_min(12rem,30dvh)_+_4.5rem)] sm:w-[78%] sm:justify-self-end",
+                // Behind Terminal 1: hide the header's right side so no clipped bits show.
+                front !== "b" && "sm:[&_[data-controls]]:invisible",
+              )}
               initial={reduce ? false : { opacity: 0, y: 18, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: front === "b" ? 1 : 0.985 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -339,7 +389,7 @@ export function RecordSession({
                 scrollKey={b.entries.length}
                 footer={
                   <PromptInput
-                    busy={b.running}
+                    busy={b.running || sending}
                     cwd={cwd}
                     expected={phase === "listening" ? nextReq?.cmd : undefined}
                     onSubmit={submitB}
@@ -387,14 +437,14 @@ export function RecordSession({
   );
 }
 
-/** Dims the window that's behind; clicking it brings it forward. */
+/** Dims the window that's behind (sm and up, where they overlap). */
 function BackShade({ show }: { show: boolean }) {
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-0 rounded-xl bg-black/35 transition-opacity duration-300",
-        show ? "opacity-100" : "opacity-0",
+        "pointer-events-none absolute inset-0 rounded-xl bg-black/35 opacity-0 transition-opacity duration-300",
+        show && "sm:opacity-100",
       )}
     />
   );

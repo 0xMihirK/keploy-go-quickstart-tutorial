@@ -13,7 +13,8 @@ function read(rel: string) {
 function pickMock(all: string, contains: string) {
   const docs = all.split(/^---\n/m);
   const i = docs.findIndex((d) => d.includes(contains));
-  return { doc: docs[i].trimEnd() + "\n", index: i + 1, total: docs.length };
+  const name = docs[i].match(/^name: (\S+)/m)?.[1] ?? `mock ${i + 1}`;
+  return { doc: docs[i].trimEnd() + "\n", name, total: docs.length };
 }
 
 const TEST_NOTES: Note[] = [
@@ -49,6 +50,14 @@ const CONFIG_NOTES: Note[] = [
     match: "^mockRegistry:",
     title: "Where the mocks live",
     body: "Keploy uploads mocks.yaml to its registry and stores the hash here. The keploy/.gitignore it generates excludes mocks.yaml, so you commit tests and config, and CI downloads the mocks by this hash.",
+  },
+];
+
+const MAPPINGS_NOTES: Note[] = [
+  {
+    match: "^tests:",
+    title: "Which mocks each test used",
+    body: "Each test lists the mocks it used while recording: `post-url-1` used `mock-3`, and `get-7fvpssfg-1` used `mock-4`.",
   },
 ];
 
@@ -90,7 +99,12 @@ function files(): ExplorerFile[] {
       path: "keploy/test-set-0/mocks.yaml",
       content: mock.doc,
       notes: mockNotes,
-      caption: `mock ${mock.index} of ${mock.total}`,
+      caption: `${mock.name} of ${mock.total}`,
+    },
+    {
+      path: "keploy/test-set-0/mappings.yaml",
+      content: read("keploy/test-set-0/mappings.yaml"),
+      notes: MAPPINGS_NOTES,
     },
     {
       path: "keploy/test-set-0/config.yaml",

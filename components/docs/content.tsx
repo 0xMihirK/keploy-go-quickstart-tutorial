@@ -36,7 +36,8 @@ export function Callout({
   const c = CALLOUTS[type];
   const Icon = c.icon;
   return (
-    <aside
+    <div
+      role="note"
       className={cn(
         "not-prose my-6 flex gap-3 rounded-lg border px-4 py-3.5 text-[15.5px] leading-relaxed",
         c.cls,
@@ -49,7 +50,7 @@ export function Callout({
         </p>
         <div className="text-ink/85">{children}</div>
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -93,8 +94,9 @@ export function Pre(props: React.ComponentProps<"pre">) {
   const ref = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
   return (
-    <div className="group/code relative">
-      <pre ref={ref} {...props} />
+    // The button gets its own column so long lines scroll beside it, never under it.
+    <div className="group/code flex items-start">
+      <pre ref={ref} {...props} className={cn("min-w-0 flex-1", props.className)} />
       <button
         type="button"
         onClick={async () => {
@@ -107,10 +109,11 @@ export function Pre(props: React.ComponentProps<"pre">) {
           }
         }}
         aria-label={copied ? "Copied" : "Copy code"}
-        className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-rule bg-surface/90 px-1.5 py-1 text-[11px] text-graphite opacity-100 backdrop-blur transition-opacity hover:text-ink sm:opacity-0 sm:group-hover/code:opacity-100 sm:focus-visible:opacity-100"
+        className="m-2 inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-surface px-1.5 py-1 text-[11px] text-graphite opacity-100 transition-opacity hover:text-ink sm:opacity-0 sm:group-hover/code:opacity-100 sm:focus-visible:opacity-100"
       >
         {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        <span>{copied ? "Copied" : "Copy"}</span>
+        {/* Icon only on phones, where the column is narrow. */}
+        <span className="sr-only sm:not-sr-only">{copied ? "Copied" : "Copy"}</span>
       </button>
     </div>
   );

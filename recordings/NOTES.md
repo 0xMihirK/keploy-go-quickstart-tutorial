@@ -1,6 +1,6 @@
 # Run notes
 
-These are my notes from running Keploy's Gin + MongoDB quickstart on 2 October 2026. I followed the docs' **Running App Locally** path ([keploy.io/docs/quickstart/samples-gin](https://keploy.io/docs/quickstart/samples-gin/)), where the Go app runs on the machine and only MongoDB runs in Docker. Every command and output in the tutorial comes from these runs.
+These are my notes from running Keploy's Gin + MongoDB quickstart on October 2, 2026. I followed the docs' **Running App Locally** path ([keploy.io/docs/quickstart/samples-gin](https://keploy.io/docs/quickstart/samples-gin/)), where the Go app runs on the machine and only MongoDB runs in Docker. Every command and output in the tutorial comes from these runs.
 
 ## Setup
 
@@ -8,11 +8,12 @@ These are my notes from running Keploy's Gin + MongoDB quickstart on 2 October 2
 - The clean run happened in a privileged Ubuntu 22.04 container on that kernel, with Go 1.24.2. It used the host network and ran as root. I repeated the record step afterwards as a normal user (see below).
 - I installed Keploy with `curl --silent -O -L https://keploy.io/install.sh && source install.sh`, which installed **Keploy 3.8.58**. The output is in `terminal/01-install.ansi`.
 - MongoDB came from the sample's compose file (`docker compose up -d mongo`). The `mongo` image resolved to **MongoDB 9.0.2** (`mongod --version`).
-- Samples: `keploy/samples-go` at commit `2b0a034` (2026-09-04).
+- Samples: `keploy/samples-go` at commit `2b0a034` (September 4, 2026).
+- The sample's `docker-compose.yaml` declares `keploy-network` as `external: true`, so Compose doesn't create it. It also has a `version: "3.9"` line, which makes Compose warn that `version` is obsolete.
 
-## What I ran, in order
+## What I ran
 
-Each run has a raw capture in `terminal/`. The `.ansi` file is the output and the `.tm` file is its timing, both recorded with `script --log-timing`.
+Each run has a raw capture in `terminal/`. The `.ansi` file is the output and the `.tm` file is its timing, both recorded with `script --log-timing`. 03-clone, the compose output and 32-gin-globalnoise were captured after the main run, with identical commands.
 
 | Capture | Command |
 |---|---|
@@ -26,7 +27,7 @@ Each run has a raw capture in `terminal/`. The `.ansi` file is the output and th
 | 31-gin-nonoise | the same, after deleting `body.ts: []` from the test file |
 | 32-gin-globalnoise | the same, with `body.ts` only in `keploy.yml` under `test.globalNoise.global` |
 
-Before recording I ran `rm -rf keploy`, `sed -i 's/mongoDb:27017/localhost:27017/' main.go` and `docker compose up -d mongo`. The compose output is in `terminal/docker-compose.txt`.
+Before recording I ran `rm -rf keploy`, `sed -i 's/mongoDb:27017/localhost:27017/' main.go` and `docker compose up -d mongo`. The compose output is in `terminal/docker-compose.txt`. The tutorial also runs `docker network create keploy-network 2>/dev/null || true` before `docker compose up`, because of the external network above.
 
 My break-it capture used a longer `sed` that replaced the whole `c.Redirect(...)` call. The tutorial shows a shorter `sed`. `StatusSeeOther` appears only once in `handler.go`, so both make the same edit.
 
@@ -57,9 +58,10 @@ See `terminal/non-root-user.txt`.
 
 ## Problems I hit
 
-1. Microsoft Defender quarantined the native Windows build as `Trojan:Win32/Gracing.I` right after it downloaded from `keploy.io/ent/dl/latest/enterprise_windows_amd64.exe`. I didn't override it.
+1. Microsoft Defender quarantined the native Windows build as `Trojan:Win32/Gracing.I` right after it downloaded from `keploy.io/ent/dl/latest/enterprise_windows_amd64.exe`. Running it in PowerShell then failed with `Operation did not complete successfully because the file contains a virus or potentially unwanted software.` I didn't override it. The tutorial leaves the detection name out; it stays here.
 2. The open-source GitHub release (v3.6.86) only mocks HTTP and MySQL. Its banner is in `terminal/oss-build-banner.txt`.
 3. The `keploy login` browser link expires after one minute: `authentication timed out after 1 minute; last polling error: unexpected status 401: {"error":"invalid or expired code"}`. My workspace role couldn't create a read-scope API key: `you do not hold the "read" scope; a token cannot be stronger than the person creating it`.
 4. In Windows PowerShell 5.1, `curl` is `Invoke-WebRequest`: `A positional parameter cannot be found that accepts argument 'POST'.`
-5. Port 8080 was already taken by another container: `terminal/ingress-port-in-use.txt`.
-6. A request sent before the recorder is ready fails with `curl: (7) ... Connection refused`: `terminal/curl-refused.txt`.
+5. Port 8080 was already taken by another container: `listen tcp4 0.0.0.0:8080: bind: address already in use` (`terminal/ingress-port-in-use.txt`).
+6. A request sent before the recorder is ready fails with `curl: (7) Failed to connect to localhost port 8080 after 0 ms: Connection refused`: `terminal/curl-refused.txt`.
+7. Every record and test run logs `WARN agent pod cgroup slice unresolved`, which asks for `KEPLOY_POD_UID` (a Kubernetes setting). It didn't affect any result.

@@ -5,14 +5,16 @@
 @custom-variant dark (&:is(.dark *));
 /* Side-by-side lesson + lab only when the window is wide AND tall enough. */
 @custom-variant tall (@media (min-width: 64rem) and (min-height: 36rem));
+/* Side-by-side but short (a 1280x630 laptop window): tighter spacing. */
+@custom-variant tall-short (@media (min-width: 64rem) and (min-height: 36rem) and (max-height: 43.75rem));
 
 /* ---------- Tokens ---------- */
 :root {
-  --paper: #f5f6f8;
+  --paper: #f6f6f3;
   --surface: #ffffff;
   --ink: #14161b;
-  --graphite: #5b6270;
-  --rule: #e2e5ea;
+  --graphite: #595e68;
+  --rule: #e4e3dd;
   --orange: #ff6b1a;
   --orange-text: #b23a0a;
   --record: #e5484d;
@@ -32,11 +34,11 @@
   --popover-foreground: var(--ink);
   --primary: var(--ink);
   --primary-foreground: var(--surface);
-  --secondary: #eceef2;
+  --secondary: #eeede8;
   --secondary-foreground: var(--ink);
-  --muted: #eceef2;
+  --muted: #eeede8;
   --muted-foreground: var(--graphite);
-  --accent: #eceef2;
+  --accent: #eeede8;
   --accent-foreground: var(--ink);
   --destructive: var(--record-text);
   --border: var(--rule);
@@ -202,8 +204,8 @@
 :is(.prose, .prose > [data-only]) > * + * {
   margin-top: 1em;
 }
-:is(.prose, .prose > [data-only]) > :is(.not-prose, figure, aside, fieldset, [role="group"], [data-only]) + *,
-:is(.prose, .prose > [data-only]) > * + :is(.not-prose, figure, aside, fieldset, [role="group"], [data-only]) {
+:is(.prose, .prose > [data-only]) > :is(.not-prose, figure, [role="note"], fieldset, [role="group"], [data-only]) + *,
+:is(.prose, .prose > [data-only]) > * + :is(.not-prose, figure, [role="note"], fieldset, [role="group"], [data-only]) {
   margin-top: 1.5rem;
 }
 :is(.prose, .prose > [data-only]) > h2 {
@@ -286,18 +288,20 @@ figure[data-rehype-pretty-code-figure] {
   background: var(--surface);
   overflow: hidden;
 }
+/* Long commands scroll sideways instead of breaking mid-token. The Copy
+   button sits in its own column beside the pre (see Pre), so it never covers code. */
 figure[data-rehype-pretty-code-figure] pre {
   overflow-x: auto;
-  padding: 0.95rem 1.1rem;
+  padding: 0.95rem 0.5rem 0.95rem 1.1rem;
   font-size: 0.86rem;
   line-height: 1.7;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--graphite) 35%, transparent) transparent;
 }
 figure[data-rehype-pretty-code-figure] code {
   font-family: var(--font-mono);
   display: grid;
-  /* Long commands wrap inside the column; copying still gives one line. */
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: pre;
 }
 [data-rehype-pretty-code-title] {
   font-family: var(--font-mono);
@@ -449,13 +453,16 @@ html[data-vt="theme"]::view-transition-new(root) {
   scroll-behavior: smooth;
 }
 @media (min-width: 64rem) and (min-height: 36rem) {
-  /* Soft edges where a column scrolls under the header or footer. */
+  /* Soft top edge where a column scrolls under the header. No bottom fade:
+     the "More below" pill says when a column continues. */
   [data-scroll] {
-    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
   }
-  /* Quiet scrollbars until you reach for them. */
-  [data-scroll]:not(:hover) {
-    scrollbar-color: transparent transparent;
+  /* A faint record/replay glow behind the lab's terminals. */
+  .dark [data-lab-col] {
+    background:
+      radial-gradient(55% 40% at 25% 30%, color-mix(in oklab, var(--record) 5%, transparent), transparent 70%),
+      radial-gradient(55% 45% at 80% 75%, color-mix(in oklab, var(--replay) 6%, transparent), transparent 70%);
   }
 }
 

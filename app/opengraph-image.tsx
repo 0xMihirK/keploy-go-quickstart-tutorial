@@ -4,6 +4,32 @@ export const alt = "Test a Go API by recording it: a hands-on Keploy tutorial";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+type Weight = 400 | 500 | 700;
+
+/**
+ * The site's fonts as TTF, fetched once at build time. Without network the card
+ * still renders, in the renderer's built-in font.
+ */
+async function loadFonts() {
+  try {
+    const css = await fetch(
+      "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;700&family=JetBrains+Mono:wght@500",
+    ).then((r) => r.text());
+    // Without a browser user agent, Google Fonts serves TrueType, which the renderer needs.
+    const faces = [...css.matchAll(/font-family: '([^']+)';[^}]*?font-weight: (\d+);[^}]*?src: url\(([^)]+)\) format\('truetype'\)/g)];
+    return await Promise.all(
+      faces.map(async ([, name, weight, url]) => ({
+        name,
+        weight: Number(weight) as Weight,
+        style: "normal" as const,
+        data: await fetch(url).then((r) => r.arrayBuffer()),
+      })),
+    );
+  } catch {
+    return [];
+  }
+}
+
 const reel = (color: string) => (
   <div
     style={{
@@ -20,7 +46,8 @@ const reel = (color: string) => (
   </div>
 );
 
-export default function Image() {
+export default async function Image() {
+  const fonts = await loadFonts();
   return new ImageResponse(
     (
       <div
@@ -33,7 +60,7 @@ export default function Image() {
           background: "#0c0f14",
           color: "#e7eaf0",
           padding: "72px 80px",
-          fontFamily: "sans-serif",
+          fontFamily: "Instrument Sans",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
@@ -56,7 +83,8 @@ export default function Image() {
             display: "flex",
             gap: 14,
             fontSize: 24,
-            fontFamily: "monospace",
+            fontFamily: "JetBrains Mono",
+            fontWeight: 500,
             color: "#7d8696",
           }}
         >
@@ -66,6 +94,6 @@ export default function Image() {
         </div>
       </div>
     ),
-    size,
+    { ...size, fonts },
   );
 }

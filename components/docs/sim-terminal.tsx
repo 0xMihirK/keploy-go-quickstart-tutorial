@@ -6,12 +6,18 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
 } from "react";
 import { useInView } from "motion/react";
 import { Pause, Play } from "lucide-react";
 
-import { AnimatedSpan, Terminal, TypingAnimation } from "@/components/ui/terminal";
+import {
+  AnimatedSpan,
+  Terminal,
+  TypingAnimation,
+  type TerminalMode,
+} from "@/components/ui/terminal";
 import { Ansi, BlockArt, isBlockArt, stripAnsi } from "@/lib/ansi";
 import { loadRun, markBusy, streamLines, type RunLine } from "@/lib/runs";
 import { setDone } from "@/lib/progress";
@@ -44,6 +50,45 @@ export interface Cmd {
   accept?: string[];
   /** Regex: pause streaming after the first matching line (e.g. "ready"). */
   pauseAt?: string;
+  /** Regex: in the demo, linger on the first matching line so it can be read. */
+  holdAt?: string;
+}
+
+/** Default holds per captured run, for lines that would otherwise fly past. */
+const RUN_HOLDS: Record<string, RegExp> = {
+  // The banner's version line; the "🐰 Keploy: 2026-..." log lines must not match.
+  "01-install": /^Keploy: \d/,
+};
+const HOLD_MS = 2500;
+
+/** Demo loops stop after this many full runs until the reader presses Play. */
+export const MAX_LOOPS = 3;
+
+function subscribeVisibility(cb: () => void) {
+  document.addEventListener("visibilitychange", cb);
+  return () => document.removeEventListener("visibilitychange", cb);
+}
+
+/** False while the tab is in the background. */
+export function usePageVisible() {
+  return useSyncExternalStore(
+    subscribeVisibility,
+    () => !document.hidden,
+    () => true,
+  );
+}
+
+/** Screen-reader announcements, only while the reader drives (not the demo). */
+export function useAnnounce(driver: "demo" | "you") {
+  const [text, setText] = useState("");
+  const driverRef = useRef(driver);
+  useEffect(() => {
+    driverRef.current = driver;
+  }, [driver]);
+  const say = useCallback((s: string) => {
+    if (driverRef.current === "you") setText(s);
+  }, []);
+  return [text, say] as const;
 }
 
 interface WaitState {
@@ -57,6 +102,8 @@ export function useShell() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
+  // Pause button: output holds before the next line until resume().
+  const [held, setHeld] = useState(false);
   const [wait, setWait] = useState<WaitState | null>(null);
   const [real, setReal] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
@@ -71,6 +118,9 @@ export function useShell() {
   const lines = useRef<RunLine[]>([]);
   const pos = useRef(0);
   const abort = useRef<AbortController | null>(null);
+  const heldRef = useRef(false);
+  // A command is loading or streaming (pause only applies then).
+  const active = useRef(false);
 
   const push = useCallback((kind: EntryKind, text: string, cwd?: string) => {
     setEntries((e) => [...e, { id: nextId++, kind, text, cwd }]);
@@ -90,17 +140,22 @@ export function useShell() {
 
   /** Streams from the current position to `until` (inclusive) or the end. */
   const stream = useCallback(
-    async (until?: RegExp): Promise<"done" | "paused" | "aborted"> => {
+    async (
+      until?: RegExp,
+      opts: { ctrl?: AbortController; holdAt?: RegExp } = {},
+    ): Promise<"done" | "paused" | "aborted"> => {
       const all = lines.current;
+      const find = (re: RegExp) =>
+        all.findIndex((l, i) => i >= pos.current && re.test(stripAnsi(l.text)));
       let end = all.length;
       if (until) {
-        const hit = all.findIndex(
-          (l, i) => i >= pos.current && until.test(stripAnsi(l.text)),
-        );
+        const hit = find(until);
         if (hit !== -1) end = hit + 1;
       }
-      const ctrl = new AbortController();
+      const holdIdx = opts.holdAt ? find(opts.holdAt) : -1;
+      const ctrl = opts.ctrl ?? new AbortController();
       abort.current = ctrl;
+      active.current = true;
       setRunning(true);
       setPaused(false);
       try {
@@ -109,11 +164,18 @@ export function useShell() {
           onWait: (secs, ms) => setWait(secs ? { secs, ms } : null),
           signal: ctrl.signal,
           instant: !!reduce,
+          isPaused: () => heldRef.current,
+          holdAfter: (i) => (i === holdIdx ? HOLD_MS : 0),
         });
       } catch {
         return "aborted";
       } finally {
         setWait(null);
+        if (abort.current === ctrl) {
+          active.current = false;
+          heldRef.current = false;
+          setHeld(false);
+        }
       }
       pos.current = end;
       if (end < all.length) {
@@ -132,13 +194,27 @@ export function useShell() {
     [onLine, reduce],
   );
 
+  /** Runs a command; `demo` applies the holds meant for the self-playing loop. */
   const exec = useCallback(
-    async (c: Cmd) => {
+    async (c: Cmd, { demo = false } = {}) => {
+      // Created before the fetch so Ctrl+C or a reset works while loading.
+      const ctrl = new AbortController();
+      abort.current = ctrl;
+      active.current = true;
       if (c.run) {
         setRunning(true);
-        const run = await loadRun(c.run);
-        lines.current = run.lines;
-        setReal(run.real);
+        try {
+          const run = await loadRun(c.run);
+          if (ctrl.signal.aborted) return "aborted";
+          lines.current = run.lines;
+          setReal(run.real);
+        } catch {
+          if (ctrl.signal.aborted) return "aborted";
+          active.current = false;
+          push("note", "Couldn't load the recorded run.");
+          setRunning(false);
+          return "aborted";
+        }
       } else {
         lines.current = (c.out ?? []).map((text, i) => ({
           d: i === 0 ? 280 : 40,
@@ -149,14 +225,32 @@ export function useShell() {
       pos.current = 0;
       setProgress(0);
       setOutcome(null);
-      return stream(c.pauseAt ? new RegExp(c.pauseAt) : undefined);
+      const hold = c.holdAt ? new RegExp(c.holdAt) : c.run ? RUN_HOLDS[c.run] : undefined;
+      return stream(c.pauseAt ? new RegExp(c.pauseAt) : undefined, {
+        ctrl,
+        holdAt: demo ? hold : undefined,
+      });
     },
-    [stream],
+    [stream, push],
   );
+
+  const pause = useCallback(() => {
+    if (!active.current) return;
+    heldRef.current = true;
+    setHeld(true);
+  }, []);
+
+  const resume = useCallback(() => {
+    heldRef.current = false;
+    setHeld(false);
+  }, []);
 
   /** Ctrl+C while a replay streams: stop it where it is, like a real shell. */
   const interrupt = useCallback(() => {
     abort.current?.abort();
+    active.current = false;
+    heldRef.current = false;
+    setHeld(false);
     setEntries((e) => [...e, { id: nextId++, kind: "out", text: "^C" }]);
     setRunning(false);
     setPaused(false);
@@ -165,6 +259,9 @@ export function useShell() {
 
   const reset = useCallback(() => {
     abort.current?.abort();
+    active.current = false;
+    heldRef.current = false;
+    setHeld(false);
     lines.current = [];
     pos.current = 0;
     setEntries([]);
@@ -186,13 +283,24 @@ export function useShell() {
     stream,
     reset,
     interrupt,
+    pause,
+    resume,
     running,
     paused,
+    held,
     wait,
     real,
     progress,
     outcome,
   };
+}
+
+/** Title badge: Keploy's result once there is one, else the mode while it runs. */
+export function outcomeMode(
+  outcome: "pass" | "fail" | null,
+  mode: TerminalMode | undefined,
+): TerminalMode {
+  return outcome === "pass" ? "passed" : outcome === "fail" ? "failed" : (mode ?? null);
 }
 
 /** Frame glow once Keploy reports a result. */
@@ -245,9 +353,8 @@ export function StatusBar({
   idleText?: string;
   pausedText?: string;
 }) {
-  const { running, paused, wait, real, progress, outcome } = shell;
-  // Nothing to report until something runs.
-  if (!running && !paused && !idleText && !real) return null;
+  const { running, paused, held, wait, real, progress, outcome } = shell;
+  // The row is always there (empty when idle) so the window doesn't reflow.
   return (
     <div className="relative flex min-h-8 items-center gap-2 border-t border-tape-rule px-3.5 py-1.5 font-mono text-[11px] text-tape-dim">
       {(running || progress > 0) && (
@@ -260,7 +367,12 @@ export function StatusBar({
           style={{ width: `${Math.round(progress * 100)}%` }}
         />
       )}
-      {running && !paused ? (
+      {held ? (
+        <>
+          <Pause className="size-3" aria-hidden="true" />
+          <span>Paused. Press Play to continue.</span>
+        </>
+      ) : running && !paused ? (
         <>
           <span className="text-[#ffd77a]">
             <Spinner />
@@ -310,17 +422,27 @@ export function EntryLine({ entry }: { entry: Entry }) {
   }
   if (isBlockArt(entry.text)) return <BlockArt text={entry.text} />;
   // Box-drawing tables (Keploy's diff view) must not wrap; logs should.
-  const table = /[│┌├└]/.test(entry.text);
+  const table = /[│┌├└╭╰]/.test(entry.text);
   const plain = stripAnsi(entry.text);
   const isFail = /^Testrun failed/.test(plain);
   const isSummary = /TESTRUN SUMMARY/.test(plain);
   const captured = /captured test cases/.test(entry.text);
+  // A thin bar marks results so they stand out from the INFO logs.
+  const accent = /Total test failed:\s*[1-9]/.test(plain)
+    ? "shadow-[inset_2px_0_0_var(--record)]"
+    : /Total test (passed|failed):/.test(plain) || isSummary
+      ? "shadow-[inset_2px_0_0_var(--replay)]"
+      : captured
+        ? "shadow-[inset_2px_0_0_var(--orange)]"
+        : null;
   return (
     <div
       data-fail={isFail ? "" : undefined}
       data-summary={isSummary ? "" : undefined}
       className={cn(
         table ? "w-max whitespace-pre leading-[1.2]" : "whitespace-pre-wrap break-words",
+        accent && "-mx-2 px-2",
+        accent,
         captured && "line-flash",
       )}
     >
@@ -569,26 +691,32 @@ export function SimTerminal({
   // "demo" plays the commands on a loop; "you" means the reader took over.
   const [driver, setDriver] = useState<"demo" | "you">("demo");
   const [history, setHistory] = useState<string[]>([]);
-  const [announce, setAnnounce] = useState("");
+  const [announce, say] = useAnnounce(driver);
   const [runs, setRuns] = useState(0);
+  const [cycles, setCycles] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const inView = useInView(rootRef, { amount: 0.35 });
+  const visible = usePageVisible();
   const done = step >= commands.length;
   const current = commands[step];
   const promptCwd = current?.cwd ?? commands[commands.length - 1]?.cwd ?? cwd;
   const busy = shell.running;
+  // Finished and not going to loop again (reduced motion, or loop limit hit).
+  const stalled = done && (reduce || cycles >= MAX_LOOPS);
 
   const runCurrent = async (typed: string, byReader: boolean) => {
     const c = commands[step];
     shell.push("cmd", typed, promptCwd);
     setHistory((h) => [...h, typed]);
-    setAnnounce(`Running ${c.cmd}`);
-    const result = await shell.exec(c);
+    say(`Running ${c.cmd}`);
+    const result = await shell.exec(c, { demo: !byReader });
     if (result === "aborted") {
-      setAnnounce("Stopped");
+      say("Stopped");
+      // A failed load would retry forever in the demo loop.
+      setDriver("you");
       return;
     }
-    setAnnounce(`Finished: ${c.cmd}`);
+    say(`Finished: ${c.cmd}`);
     setRuns((n) => n + 1);
     onCommandDone?.(step);
     const next = step + 1;
@@ -605,22 +733,24 @@ export function SimTerminal({
 
   // The demo loop: type the next command, run it, hold on the result, start over.
   useEffect(() => {
-    if (driver !== "demo" || !inView || busy || auto) return;
+    if (driver !== "demo" || !inView || !visible || busy || auto || stalled) return;
     if (!done) {
       const t = setTimeout(() => setAuto(true), step === 0 ? 700 : 1100);
       return () => clearTimeout(t);
     }
-    if (reduce) return; // show the finished run once, without looping
-    const t = setTimeout(restart, shell.outcome ? 6500 : 4000);
+    const t = setTimeout(() => {
+      setCycles((n) => n + 1);
+      if (cycles + 1 < MAX_LOOPS) restart();
+    }, shell.outcome ? 6500 : 4000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restart is stable in effect
-  }, [driver, inView, busy, auto, done, step, reduce, shell.outcome]);
+  }, [driver, inView, visible, busy, auto, done, stalled, step, cycles, shell.outcome]);
 
   // Leaving the screen pauses typing mid-way; it resumes from the same step.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- cancel a half-typed demo command
-    if (!inView && auto) setAuto(false);
-  }, [inView, auto]);
+    if ((!inView || !visible) && auto) setAuto(false);
+  }, [inView, visible, auto]);
 
   const takeOver = () => {
     if (driver === "you") return;
@@ -662,17 +792,25 @@ Press → to fill it in, then Enter.`
     shell.push("note", "That was the last command for this step. Press play in the title bar to watch it again.");
   };
 
-  const playing = driver === "demo";
+  const playing = driver === "demo" && !stalled;
   const loopButton = (
     <button
       type="button"
       onClick={() => {
-        if (playing) return takeOver();
-        if (done) restart();
+        if (playing) {
+          takeOver();
+          shell.pause();
+          return;
+        }
+        shell.resume();
+        if (done) {
+          restart();
+          setCycles(0);
+        }
         setDriver("demo");
       }}
       className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-tape-dim transition-colors hover:bg-white/5 hover:text-tape-ink"
-      aria-label={playing ? "Pause the demo and type yourself" : "Play the demo"}
+      aria-label={playing ? "Pause the demo" : "Play the demo"}
     >
       {playing ? <Pause className="size-3.5" aria-hidden="true" /> : <Play className="size-3.5" aria-hidden="true" />}
       <span>{playing ? "Pause" : "Play"}</span>
@@ -691,7 +829,7 @@ Press → to fill it in, then Enter.`
       <Terminal
         sequence={false}
         title={`${title} — ${promptCwd}`}
-        mode={mode}
+        mode={outcomeMode(shell.outcome, mode)}
         controls={loopButton}
         copyText={commands.map((c) => c.cmd).join("\n")}
         height={maxHeight}
