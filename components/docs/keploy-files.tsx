@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { YamlExplorer, type ExplorerFile, type Note } from "./yaml-explorer";
+import { YamlExplorer } from "./lazy";
+import type { ExplorerFile, Note } from "./yaml-explorer";
 import type { StackId } from "./stack";
 
 const DIR: Record<StackId, string> = { gin: "gin-mongo", echo: "echo-sql" };

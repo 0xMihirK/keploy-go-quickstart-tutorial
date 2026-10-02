@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { Header } from "@/components/docs/chrome";
 import { DeckController, DeckFooter } from "@/components/docs/slides";
 import { stackInitScript } from "@/components/docs/stack";
+import { startSlideCss, startSlideScript } from "@/lib/slides-data";
 import "./globals.css";
 
 const sans = Instrument_Sans({
@@ -19,7 +20,12 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://keploy-go-quickstart-tutorial.vercel.app";
+// Vercel sets VERCEL_PROJECT_PRODUCTION_URL at build time; locally it's localhost.
+const SITE =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -31,7 +37,9 @@ export const metadata: Metadata = {
     description:
       "Run a Go app, send it two requests, and get tests plus database mocks you can replay with the database off.",
     type: "article",
+    url: "/",
   },
+  alternates: { canonical: "/" },
   twitter: { card: "summary_large_image" },
 };
 
@@ -46,7 +54,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: stackInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: `${stackInitScript};${startSlideScript}` }} />
+        <style dangerouslySetInnerHTML={{ __html: startSlideCss }} />
         <noscript>
           <style>{"body{height:auto!important;overflow:visible!important;display:block!important}main{overflow:visible!important}[data-slide]{display:block!important;margin-bottom:6rem}[data-deck-ui]{display:none!important}"}</style>
         </noscript>
@@ -62,7 +71,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Header />
           <main
             id="content"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:overflow-hidden"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain tall:overflow-hidden"
           >
             <div className="mx-auto h-full max-w-[84rem] px-4 sm:px-8">{children}</div>
           </main>

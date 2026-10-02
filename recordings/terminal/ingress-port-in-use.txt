@@ -1,0 +1,3 @@
+# keploy record while another container already published port 8080 (2026-10-02, Keploy 3.8.58).
+# Seen during my first attempt at the clean run; fixed by stopping that container.
+🐰 Keploy(agent): 2026-10-02T19:50:25Z	ERROR	Ingress hook failed to start; verify hook configuration/permissions and required kernel features, or disable the custom ingress hook	{"orig_port": 8080, "new_port": 45993, "error": "ingress proxy failed to listen on 0.0.0.0:8080: listen tcp4 0.0.0.0:8080: bind: address already in use"}

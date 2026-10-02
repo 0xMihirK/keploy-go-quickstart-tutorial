@@ -18,7 +18,6 @@ import {
 import {
   motion,
   useInView,
-  useReducedMotion,
   type DOMMotionComponents,
   type HTMLMotionProps,
   type MotionProps,
@@ -26,6 +25,7 @@ import {
 import { Check, Copy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/lib/reduced-motion";
 
 interface SequenceContextValue {
   completeItem: (index: number) => void;
@@ -360,15 +360,45 @@ export const Terminal = ({
     };
   }, [sequence, activeIndex, sequenceHasStarted]);
 
-  // Follow new output, unless the reader scrolled up to look at something.
+  // Follow new output like a real terminal. Only the reader's own input
+  // (wheel, touch, keys) unpins; scrolling back to the bottom re-pins.
   const pinned = useRef(true);
-  const lastSet = useRef(0);
+  const innerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = bodyRef.current;
-    if (el && pinned.current) {
-      el.scrollTop = el.scrollHeight;
-      lastSet.current = el.scrollTop;
-    }
+    const inner = innerRef.current;
+    if (!el || !inner) return;
+    const stick = () => {
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    };
+    const ro = new ResizeObserver(stick);
+    ro.observe(inner);
+    const unpin = () => {
+      requestAnimationFrame(() => {
+        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+      });
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0) pinned.current = false;
+      else unpin();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (["ArrowUp", "PageUp", "Home"].includes(e.key)) pinned.current = false;
+    };
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchmove", unpin, { passive: true });
+    el.addEventListener("keydown", onKey);
+    stick();
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchmove", unpin);
+      el.removeEventListener("keydown", onKey);
+    };
+  }, []);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [activeIndex, scrollKey]);
 
   const wrappedChildren = useMemo(() => {
@@ -411,25 +441,19 @@ export const Terminal = ({
         aria-label={label}
         aria-busy={!done}
         className={cn(
-          "overflow-auto px-4 py-3.5 font-mono text-[12.5px] leading-[1.6]",
+          "overflow-auto px-4 py-3.5 font-term text-[12.5px] leading-[1.6]",
           bodyClassName,
         )}
         style={{ maxHeight }}
         onScroll={(e) => {
-          // Unpin only when the reader scrolls above where we last put them;
-          // re-pin when they come back to the bottom.
           const el = e.currentTarget;
-          if (el.scrollTop + 4 < lastSet.current) pinned.current = false;
-          if (el.scrollHeight - el.scrollTop - el.clientHeight < 24) {
-            pinned.current = true;
-            lastSet.current = el.scrollTop;
-          }
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) pinned.current = true;
         }}
       >
-        <pre className="font-mono text-[12.5px] leading-[1.6]">
-          <code className="grid gap-y-0.5">{wrappedChildren}</code>
-        </pre>
-        {footer}
+        <div ref={innerRef}>
+          <div className="grid gap-y-0.5 whitespace-pre-wrap">{wrappedChildren}</div>
+          {footer}
+        </div>
       </div>
       {statusBar}
     </div>

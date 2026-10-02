@@ -2,7 +2,7 @@
 
 import { AnimatedSpan, Terminal, TypingAnimation } from "@/components/ui/terminal";
 import { Ansi } from "@/lib/ansi";
-import { Prompt } from "./sim-terminal";
+import { Prompt } from "./prompt";
 import { ArrowRight } from "lucide-react";
 import { next } from "@/lib/slides";
 import { Stack, type StackId } from "./stack";
@@ -50,7 +50,7 @@ function Loop({ stack }: { stack: StackId }) {
       title={`bash — ${l.dir}`}
       maxHeight="22.5rem"
       label="The whole loop, from a real run"
-      bodyClassName="h-[22.5rem] [&_code]:gap-y-1"
+      bodyClassName="h-[22.5rem]"
     >
       <TypingAnimation prompt={p} duration={26}>{l.record}</TypingAnimation>
       {l.logs.map((t) => (

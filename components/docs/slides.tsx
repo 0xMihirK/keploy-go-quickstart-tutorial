@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Check, List, RotateCcw } from "lucide-react";
 
 import {
@@ -23,6 +23,7 @@ import {
   type SlideGroup,
 } from "@/lib/slides";
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/lib/reduced-motion";
 
 /* ---------------------------------------------------------------------- */
 /* Slide                                                                   */
@@ -89,24 +90,24 @@ export function Slide({
     <SlideCtx.Provider value={id}>
       <section
         data-slide={id}
-        hidden={!active}
+        data-active={active ? "" : undefined}
         aria-labelledby={`${id}-title`}
-        className="lg:h-full"
+        className="tall:h-full"
       >
         <motion.div
           key={active ? "on" : "off"}
           initial={reduce || !active || !moved ? false : { opacity: 0, x: dir * 24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, ease: [0.22, 0.8, 0.3, 1] }}
-          className="lg:h-full"
+          className="tall:h-full"
         >
           {layout === "split" ? (
-            <div className="lg:grid lg:h-full lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
+            <div className="tall:grid tall:h-full tall:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
               {children}
             </div>
           ) : (
-            <div data-scroll className="lg:h-full lg:overflow-y-auto lg:overscroll-contain">
-              <div className="prose mx-auto max-w-3xl py-8 lg:py-12">
+            <div data-scroll className="tall:h-full tall:overflow-y-auto tall:overscroll-contain">
+              <div className="prose mx-auto max-w-3xl py-8 tall:py-12">
                 <SlideHeading id={id} />
                 {children}
               </div>
@@ -124,7 +125,7 @@ export function Lesson({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-scroll
-      className="min-w-0 pt-8 pb-6 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:py-10 lg:pr-10"
+      className="min-w-0 pt-8 pb-6 tall:h-full tall:overflow-y-auto tall:overscroll-contain tall:py-10 tall:pr-10"
     >
       <SlideHeading id={id} />
       <div className="prose text-[16.5px]">{children}</div>
@@ -137,7 +138,8 @@ export function Lab({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-scroll
-      className="min-w-0 pb-8 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-rule lg:py-10 lg:pl-10 [&>*:first-child]:mt-0"
+      data-lab
+      className="min-w-0 pb-8 tall:h-full tall:overflow-y-auto tall:overscroll-contain tall:border-l tall:border-rule tall:py-10 tall:pl-10"
     >
       {children}
     </div>
@@ -170,7 +172,9 @@ export function DeckController() {
     const sync = () => {
       const h = decodeURIComponent(location.hash.slice(1));
       const i = indexOf(alias[h] ?? h);
-      goTo(i === -1 ? 0 : i, { updateHash: false });
+      // Unknown hashes (like the skip link's #content) leave the slide alone.
+      if (i !== -1 || !h) goTo(i === -1 ? 0 : i, { updateHash: false });
+      delete document.documentElement.dataset.start;
     };
     sync();
     window.addEventListener("popstate", sync);
@@ -184,10 +188,10 @@ export function DeckController() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey || e.ctrlKey || e.metaKey || isTyping(document.activeElement)) return;
-      if (e.key === "ArrowRight" || e.key === "PageDown") {
+      if (e.key === "ArrowRight") {
         e.preventDefault();
         next();
-      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+      } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         prev();
       }
@@ -198,6 +202,7 @@ export function DeckController() {
 
   // New slide: back to the top, focus its heading for screen readers.
   useEffect(() => {
+    document.title = `${SLIDES[index].title} · Keploy + Go quickstart`;
     if (first.current) {
       first.current = false;
       return;
@@ -210,7 +215,6 @@ export function DeckController() {
     const h = document.getElementById(`${SLIDES[index].id}-title`);
     h?.setAttribute("tabindex", "-1");
     h?.focus({ preventScroll: true });
-    document.title = `${SLIDES[index].title} · Keploy + Go quickstart`;
   }, [index]);
 
   return null;
@@ -243,7 +247,7 @@ export function DeckFooter() {
         </button>
         <p className="mx-auto hidden shrink-0 items-center gap-2 text-[13px] text-graphite tabular-nums md:flex">
           {index + 1} / {SLIDES.length}
-          <span className="text-graphite/70">
+          <span>
             <kbd className="rounded border border-rule px-1 font-mono text-[11px]">←</kbd>{" "}
             <kbd className="rounded border border-rule px-1 font-mono text-[11px]">→</kbd> to move
           </span>
@@ -283,7 +287,7 @@ export function Stepper() {
   const { index } = useDeck();
   const progress = useProgress();
   return (
-    <ol className="flex items-center gap-1" aria-label="Pages">
+    <ol className="flex items-center" aria-label="Pages">
       {SLIDES.map((s, i) => {
         const done = !!progress[s.id];
         const here = i === index;
@@ -295,14 +299,15 @@ export function Stepper() {
               aria-label={`${s.title}${done ? " (done)" : ""}`}
               aria-current={here ? "page" : undefined}
               title={s.nav ?? s.title}
-              className="group grid h-6 place-items-center px-0.5"
+              className="group grid h-6 min-w-6 place-items-center"
             >
-              <span
+              <motion.span
+                layout
+                transition={{ type: "spring", stiffness: 520, damping: 40 }}
                 className={cn(
-                  "block h-1.5 rounded-full transition-all duration-300",
+                  "block h-1.5 rounded-full transition-colors duration-300",
                   here ? "w-7 bg-ink" : "w-3.5 group-hover:bg-graphite/60",
                   !here && (done ? "bg-replay" : i < index ? "bg-graphite/45" : "bg-rule"),
-                  s.group === "steps" ? "" : "opacity-80",
                 )}
               />
             </button>
@@ -335,7 +340,7 @@ export function SlideMenu() {
         }
       >
         <List className="size-4" aria-hidden="true" />
-        <span className="hidden sm:inline">All steps</span>
+        <span className="sr-only sm:not-sr-only">All steps</span>
       </SheetTrigger>
       <SheetContent side="left" className="w-[20rem] gap-0 bg-paper p-0">
         <SheetHeader className="border-b border-rule px-5 py-4">

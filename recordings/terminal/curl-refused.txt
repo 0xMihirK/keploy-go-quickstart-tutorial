@@ -1,0 +1,6 @@
+# curl against a port where nothing is listening yet (captured 2026-10-03, curl 7.81.0 in the Ubuntu 22.04 lab container).
+# Shown in the record step if you send a request before keploy record is ready.
+$ curl --request POST --url http://localhost:8080/url --header "content-type: application/json" --data '{"url": "https://keploy.io"}'
+curl: (7) Failed to connect to localhost port 8080 after 0 ms: Connection refused
+$ curl --request POST --url http://localhost:8082/url --header "content-type: application/json" --data '{"url": "https://github.com"}'
+curl: (7) Failed to connect to localhost port 8082 after 0 ms: Connection refused

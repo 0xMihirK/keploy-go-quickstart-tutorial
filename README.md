@@ -25,7 +25,9 @@ Each step pairs a short explanation with something to do:
 
 ## Every output is real
 
-I ran both quickstarts with Keploy 3.8.58 on Ubuntu 22.04 (WSL2 kernel, Windows 11 host) on 2 October 2026. Nothing on the page is invented:
+I ran both quickstarts with Keploy 3.8.58 on 2 October 2026, in an Ubuntu 22.04 container on Docker Desktop (Windows 11, WSL2 kernel). Nothing on the page is invented:
+
+- [`recordings/NOTES.md`](recordings/NOTES.md) lists every command I ran, the results, and the problems I hit.
 
 - [`recordings/terminal/`](recordings/terminal) holds the raw terminal sessions, captured with `script --log-timing`: `.ansi` is the output, `.tm` is the timing.
 - [`recordings/gin-mongo/`](recordings/gin-mongo) and [`recordings/echo-sql/`](recordings/echo-sql) hold the files Keploy generated: test cases, mocks, `config.yaml` and `keploy.yml`.
@@ -76,4 +78,4 @@ scripts/                capture converter
 - **Linux first.** The native Windows build was quarantined by Microsoft Defender on my machine, so the tutorial sends Windows readers to WSL2 and says why.
 - **Two sample apps, one page.** Both stacks render into the HTML. A small script sets the choice before the first paint, so switching never flashes the wrong commands.
 
-Written by Mihir Katoch for the Keploy DevRel assignment. Sample apps are from [keploy/samples-go](https://github.com/keploy/samples-go) (Apache 2.0).
+MIT licensed. Written by Mihir Katoch for the Keploy DevRel assignment. Sample apps are from [keploy/samples-go](https://github.com/keploy/samples-go) (Apache 2.0).

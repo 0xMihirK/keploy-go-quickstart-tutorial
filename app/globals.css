@@ -3,6 +3,8 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Side-by-side lesson + lab only when the window is wide AND tall enough. */
+@custom-variant tall (@media (min-width: 64rem) and (min-height: 45rem));
 
 /* ---------- Tokens ---------- */
 :root {
@@ -104,6 +106,9 @@
   --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  /* Terminal output: one system font must supply letters, spaces AND block/box
+     glyphs so Keploy's banner and diff tables keep their cell grid. */
+  --font-term: "Cascadia Mono", Consolas, Menlo, "DejaVu Sans Mono", "Liberation Mono", monospace;
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -147,6 +152,27 @@
     scrollbar-color: #3a4250 transparent;
     scrollbar-width: thin;
   }
+}
+
+/* ---------- Slides ---------- */
+[data-slide]:not([data-active]) {
+  display: none;
+}
+@media (min-width: 64rem) and (min-height: 45rem) {
+  [data-scroll] {
+    scrollbar-gutter: stable;
+  }
+}
+/* Lab column: one consistent rhythm, whatever component comes first. */
+[data-lab],
+[data-lab] > [data-only] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+[data-lab] > *,
+[data-lab] > [data-only] > * {
+  margin-block: 0 !important;
 }
 
 /* ---------- Stack switch (no flash: set on <html> before paint) ---------- */
@@ -297,6 +323,40 @@ code[data-theme] span {
 .caret {
   animation: caret-blink 1.05s steps(1) infinite;
 }
+/* Traffic flowing along the sim's wires. */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+.sim-flow line {
+  animation: dash-flow 0.9s linear infinite;
+}
+/* A captured-test line arriving in a terminal. */
+@keyframes line-flash {
+  0% {
+    background: color-mix(in oklab, var(--orange) 34%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.line-flash {
+  animation: line-flash 1.6s ease-out;
+  border-radius: 3px;
+}
+/* Tape reels in the logo turn while a terminal records or replays. */
+@keyframes reel {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.reel-spin {
+  animation: reel 1.6s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

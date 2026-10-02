@@ -1,21 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
+import { getBusy, subscribeBusy } from "@/lib/runs";
 import { cn } from "@/lib/utils";
 import { SlideMenu, Stepper } from "./slides";
 import { StackSwitch } from "./stack";
 
+function Reel({ cx, color, spin }: { cx: number; color: string; spin: boolean }) {
+  return (
+    <g className={cn(spin && "reel-spin")}>
+      <circle cx={cx} cy="9" r="6" fill="none" stroke={color} strokeWidth="2" />
+      <circle cx={cx} cy="9" r="1.6" fill={color} />
+      {[0, 120, 240].map((deg) => (
+        <line
+          key={deg}
+          x1={cx}
+          y1="9"
+          // Rounded so server and browser floating point agree (hydration).
+          x2={Math.round((cx + 4.2 * Math.cos((deg * Math.PI) / 180)) * 100) / 100}
+          y2={Math.round((9 + 4.2 * Math.sin((deg * Math.PI) / 180)) * 100) / 100}
+          stroke={color}
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      ))}
+    </g>
+  );
+}
+
 export function Mark({ className }: { className?: string }) {
-  // Two tape reels: record and replay.
+  // Two tape reels: record and replay. They turn while a terminal is busy.
+  const busy = useSyncExternalStore(subscribeBusy, getBusy, () => 0) > 0;
   return (
     <svg viewBox="0 0 28 18" aria-hidden="true" className={cn("h-[18px] w-7", className)}>
-      <circle cx="7" cy="9" r="6" fill="none" stroke="var(--record)" strokeWidth="2" />
-      <circle cx="7" cy="9" r="1.8" fill="var(--record)" />
-      <circle cx="21" cy="9" r="6" fill="none" stroke="var(--replay)" strokeWidth="2" />
-      <circle cx="21" cy="9" r="1.8" fill="var(--replay)" />
+      <Reel cx={7} color="var(--record)" spin={busy} />
+      <Reel cx={21} color="var(--replay)" spin={busy} />
       <path d="M7 15h14" stroke="var(--graphite)" strokeWidth="1.5" />
     </svg>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, RotateCcw, Sparkles, Square } from "lucide-react";
 
 import { Terminal } from "@/components/ui/terminal";
@@ -11,6 +11,7 @@ import {
   PromptInput,
   StatusBar,
   useShell,
+  outcomeRing,
   type Cmd,
 } from "./sim-terminal";
 
@@ -42,6 +43,17 @@ export function RecordSession({
   const [autoB, setAutoB] = useState(false);
   const [announce, setAnnounce] = useState("");
   const paneA = useRef<HTMLDivElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
+
+  // Keep the next action visible when the lab column is short.
+  const firstPaint = useRef(true);
+  useEffect(() => {
+    if (firstPaint.current) {
+      firstPaint.current = false;
+      return;
+    }
+    actions.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [phase, sent]);
 
   const startRecord = async (typed: string) => {
     a.push("cmd", typed, cwd);
@@ -141,6 +153,7 @@ export function RecordSession({
               void stop();
             }
           }}
+          role="group"
           className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-orange/70"
           aria-label="Terminal 1: keploy record"
         >
@@ -151,34 +164,24 @@ export function RecordSession({
             copyText={record.cmd}
             maxHeight="19rem"
             label="Terminal 1 output"
+            className={cn("transition-shadow duration-700", outcomeRing(a.outcome))}
             scrollKey={a.entries.length + (a.entries.at(-1)?.text.length ?? 0)}
             bodyClassName="min-h-44"
             footer={
-              phase === "start" ? (
-                <PromptInput
-                  cwd={cwd}
-                  expected={record.cmd}
-                  onSubmit={submitA}
-                  history={[]}
-                  label="Terminal 1: type a command"
-                  autoType={autoA}
-                  onAutoTyped={() => {
-                    setAutoA(false);
-                    void startRecord(record.cmd);
-                  }}
-                />
-              ) : phase === "done" ? (
-                <PromptInput
-                  cwd={cwd}
-                  onSubmit={(v) => {
-                    a.push("cmd", v, cwd);
-                  }}
-                  history={[]}
-                  label="Terminal 1: type a command"
-                />
-              ) : (
-                <span className="caret inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink" />
-              )
+              <PromptInput
+                busy={phase !== "start" && phase !== "done"}
+                cwd={cwd}
+                expected={phase === "start" ? record.cmd : undefined}
+                onSubmit={phase === "start" ? submitA : (v) => a.push("cmd", v, cwd)}
+                onInterrupt={() => void stop()}
+                history={[]}
+                label="Terminal 1: type a command"
+                autoType={autoA}
+                onAutoTyped={() => {
+                  setAutoA(false);
+                  void startRecord(record.cmd);
+                }}
+              />
             }
             statusBar={
               <StatusBar
@@ -212,8 +215,8 @@ export function RecordSession({
           bodyClassName="min-h-28"
           className={cn(phase === "start" && "opacity-80")}
           footer={
-            !b.running ? (
               <PromptInput
+                busy={b.running}
                 cwd={cwd}
                 expected={phase === "listening" ? nextReq?.cmd : undefined}
                 onSubmit={submitB}
@@ -225,9 +228,6 @@ export function RecordSession({
                   if (nextReq) void sendRequest(nextReq.cmd);
                 }}
               />
-            ) : (
-              <span className="caret inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink" />
-            )
           }
           statusBar={
             <StatusBar
@@ -248,7 +248,7 @@ export function RecordSession({
         </Terminal>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px]">
+      <div ref={actions} className="mt-2.5 flex scroll-mb-4 flex-wrap items-center gap-2 text-[13px]">
         {phase === "start" && (
           <button type="button" className={btn} onClick={() => setAutoA(true)} disabled={autoA}>
             <Sparkles className="size-3.5 text-orange-text" aria-hidden="true" />

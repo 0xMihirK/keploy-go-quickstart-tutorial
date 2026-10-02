@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FileText, Folder, FolderOpen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -60,62 +60,91 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
   }, [file, lines]);
   const [noteIdx, setNoteIdx] = useState(0);
   const current = anchors[Math.min(noteIdx, anchors.length - 1)];
+  const codeRef = useRef<HTMLDivElement>(null);
+  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Build a tree from paths.
-  const tree = useMemo(() => {
-    const dirs = new Map<string, number[]>();
-    files.forEach((f, i) => {
-      const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
-      dirs.set(dir, [...(dirs.get(dir) ?? []), i]);
+  // Pick a note and bring its line into view inside the code pane.
+  const showNote = (i: number) => {
+    setNoteIdx(i);
+    requestAnimationFrame(() => {
+      const el = lineRefs.current[anchors[i]?.line ?? -1];
+      const box = codeRef.current;
+      if (el && box) box.scrollTo({ top: el.offsetTop - box.clientHeight / 2 + 12, behavior: "smooth" });
     });
-    return [...dirs.entries()].sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  // A real tree: folders before files, each level indented.
+  const rows = useMemo(() => {
+    const items = files.map((f, i) => ({ parts: f.path.split("/"), i }));
+    items.sort((a, b) => {
+      for (let k = 0; k < Math.min(a.parts.length, b.parts.length); k++) {
+        if (a.parts[k] === b.parts[k]) continue;
+        const aDir = k < a.parts.length - 1;
+        const bDir = k < b.parts.length - 1;
+        if (aDir !== bDir) return aDir ? -1 : 1;
+        return a.parts[k].localeCompare(b.parts[k]);
+      }
+      return a.parts.length - b.parts.length;
+    });
+    const out: ({ kind: "dir"; name: string; depth: number; path: string } | { kind: "file"; name: string; depth: number; i: number })[] = [];
+    const seen = new Set<string>();
+    for (const { parts, i } of items) {
+      for (let d = 0; d < parts.length - 1; d++) {
+        const path = parts.slice(0, d + 1).join("/");
+        if (!seen.has(path)) {
+          seen.add(path);
+          out.push({ kind: "dir", name: parts[d], depth: d, path });
+        }
+      }
+      out.push({ kind: "file", name: parts[parts.length - 1], depth: parts.length - 1, i });
+    }
+    return out;
   }, [files]);
 
   return (
     <div className="not-prose my-7 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink">
-      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[13.5rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[12.5rem_minmax(0,1fr)]">
         <nav
           aria-label="Files Keploy created"
           className="border-b border-tape-rule p-2 font-mono text-[12px] md:border-r md:border-b-0"
         >
-          {tree.map(([dir, idx]) => (
-            <div key={dir || "root"} className="mb-1">
-              {dir && (
-                <div className="flex items-center gap-1.5 px-2 py-1 text-tape-dim">
-                  {idx.includes(active) ? (
-                    <FolderOpen className="size-3.5" aria-hidden="true" />
-                  ) : (
-                    <Folder className="size-3.5" aria-hidden="true" />
-                  )}
-                  {dir}/
-                </div>
-              )}
-              {idx.map((i) => {
-                const name = files[i].path.slice(files[i].path.lastIndexOf("/") + 1);
-                return (
-                  <button
-                    key={files[i].path}
-                    type="button"
-                    onClick={() => {
-                      setActive(i);
-                      setNoteIdx(0);
-                    }}
-                    aria-current={i === active ? "true" : undefined}
-                    className={cn(
-                      "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left transition-colors",
-                      dir ? "pl-6" : "pl-2",
-                      i === active
-                        ? "bg-white/[0.07] text-tape-ink"
-                        : "text-tape-dim hover:bg-white/[0.04] hover:text-tape-ink",
-                    )}
-                  >
-                    <FileText className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">{name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+          {rows.map((r) =>
+            r.kind === "dir" ? (
+              <div
+                key={r.path}
+                className="flex items-center gap-1.5 py-1 pr-2 whitespace-nowrap text-tape-dim"
+                style={{ paddingLeft: 8 + r.depth * 14 }}
+              >
+                {files[active].path.startsWith(r.path + "/") ? (
+                  <FolderOpen className="size-3.5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Folder className="size-3.5 shrink-0" aria-hidden="true" />
+                )}
+                {r.name}/
+              </div>
+            ) : (
+              <button
+                key={files[r.i].path}
+                type="button"
+                onClick={() => {
+                  setActive(r.i);
+                  setNoteIdx(0);
+                  codeRef.current?.scrollTo({ top: 0 });
+                }}
+                aria-current={r.i === active ? "true" : undefined}
+                style={{ paddingLeft: 8 + r.depth * 14 }}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left whitespace-nowrap transition-colors",
+                  r.i === active
+                    ? "bg-white/[0.07] text-tape-ink"
+                    : "text-tape-dim hover:bg-white/[0.04] hover:text-tape-ink",
+                )}
+              >
+                <FileText className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{r.name}</span>
+              </button>
+            ),
+          )}
         </nav>
 
         <div className="min-w-0">
@@ -123,14 +152,17 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
             <span className="truncate">{file.path}</span>
             {file.caption && <span className="ml-auto shrink-0">{file.caption}</span>}
           </div>
-          <div className="max-h-[24rem] overflow-auto py-2">
-            <pre className="font-mono text-[12px] leading-[1.65]">
+          <div ref={codeRef} className="relative max-h-[24rem] overflow-auto py-2">
+            <div className="font-mono text-[12px] leading-[1.65] whitespace-pre">
               {lines.map((l, i) => {
                 const a = anchors.findIndex((x) => x.line === i);
                 const on = a !== -1 && anchors[a] === current;
                 return (
                   <div
                     key={i}
+                    ref={(el) => {
+                      lineRefs.current[i] = el;
+                    }}
                     className={cn(
                       "group flex min-w-max pr-4",
                       on && "bg-orange/[0.14]",
@@ -142,7 +174,7 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
                     {a !== -1 ? (
                       <button
                         type="button"
-                        onClick={() => setNoteIdx(a)}
+                        onClick={() => showNote(a)}
                         className={cn(
                           "relative -ml-1 rounded-sm px-1 text-left underline decoration-dotted underline-offset-4",
                           on ? "decoration-orange" : "decoration-tape-dim/70 hover:decoration-orange",
@@ -159,7 +191,7 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
                   </div>
                 );
               })}
-            </pre>
+            </div>
           </div>
         </div>
       </div>
@@ -179,7 +211,7 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
               <button
                 key={x.line}
                 type="button"
-                onClick={() => setNoteIdx(i)}
+                onClick={() => showNote(i)}
                 aria-label={`Note ${i + 1}: ${x.note.title}`}
                 aria-pressed={x === current}
                 className={cn(

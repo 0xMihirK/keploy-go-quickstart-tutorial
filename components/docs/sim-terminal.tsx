@@ -8,14 +8,15 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { useReducedMotion } from "motion/react";
 import { Check, CornerDownLeft, RotateCcw, Sparkles } from "lucide-react";
 
 import { AnimatedSpan, Terminal, TypingAnimation } from "@/components/ui/terminal";
 import { Ansi, stripAnsi } from "@/lib/ansi";
-import { loadRun, streamLines, type RunLine } from "@/lib/runs";
+import { loadRun, markBusy, streamLines, type RunLine } from "@/lib/runs";
 import { setDone, useProgress } from "@/lib/progress";
+import { Prompt } from "./prompt";
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/lib/reduced-motion";
 
 /* ------------------------------------------------------------------ */
 /* Shell state                                                         */
@@ -57,7 +58,15 @@ export function useShell() {
   const [paused, setPaused] = useState(false);
   const [wait, setWait] = useState<WaitState | null>(null);
   const [real, setReal] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [outcome, setOutcome] = useState<"pass" | "fail" | null>(null);
   const reduce = useReducedMotion();
+
+  useEffect(() => {
+    if (!running) return;
+    markBusy(1);
+    return () => markBusy(-1);
+  }, [running]);
   const lines = useRef<RunLine[]>([]);
   const pos = useRef(0);
   const abort = useRef<AbortController | null>(null);
@@ -66,7 +75,8 @@ export function useShell() {
     setEntries((e) => [...e, { id: nextId++, kind, text, cwd }]);
   }, []);
 
-  const onLine = useCallback((line: RunLine) => {
+  const onLine = useCallback((line: RunLine, i: number) => {
+    setProgress((i + 1) / Math.max(1, lines.current.length));
     setEntries((e) => {
       if (line.r && e.length && e[e.length - 1].kind === "out") {
         const copy = e.slice();
@@ -109,6 +119,12 @@ export function useShell() {
         setPaused(true);
         return "paused";
       }
+      // Keploy's own summary decides pass or fail.
+      const failed = all
+        .map((l) => stripAnsi(l.text))
+        .reverse()
+        .find((t) => /Total test failed:/.test(t));
+      if (failed) setOutcome(/:\s*0\s*$/.test(failed) ? "pass" : "fail");
       setRunning(false);
       return "done";
     },
@@ -130,6 +146,8 @@ export function useShell() {
         setReal(null);
       }
       pos.current = 0;
+      setProgress(0);
+      setOutcome(null);
       return stream(c.pauseAt ? new RegExp(c.pauseAt) : undefined);
     },
     [stream],
@@ -144,6 +162,8 @@ export function useShell() {
     setPaused(false);
     setWait(null);
     setReal(null);
+    setProgress(0);
+    setOutcome(null);
   }, []);
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -159,7 +179,18 @@ export function useShell() {
     paused,
     wait,
     real,
+    progress,
+    outcome,
   };
+}
+
+/** Frame glow once Keploy reports a result. */
+export function outcomeRing(outcome: "pass" | "fail" | null) {
+  return outcome === "pass"
+    ? "shadow-[0_0_0_1px_var(--replay),0_18px_40px_-18px_var(--replay)]"
+    : outcome === "fail"
+      ? "shadow-[0_0_0_1px_var(--record),0_18px_40px_-18px_var(--record)]"
+      : "";
 }
 
 export type Shell = ReturnType<typeof useShell>;
@@ -167,17 +198,6 @@ export type Shell = ReturnType<typeof useShell>;
 /* ------------------------------------------------------------------ */
 /* Pieces                                                              */
 /* ------------------------------------------------------------------ */
-
-export function Prompt({ cwd }: { cwd: string }) {
-  return (
-    <span className="select-none">
-      <span className="font-semibold text-[#4fd18b]">you@dev</span>
-      <span className="text-tape-ink">:</span>
-      <span className="font-semibold text-[#6ca8ff]">{cwd}</span>
-      <span className="text-tape-ink">$ </span>
-    </span>
-  );
-}
 
 function WaitCounter({ secs, ms }: WaitState) {
   const [shown, setShown] = useState(0);
@@ -214,9 +234,19 @@ export function StatusBar({
   idleText: string;
   pausedText?: string;
 }) {
-  const { running, paused, wait, real } = shell;
+  const { running, paused, wait, real, progress, outcome } = shell;
   return (
-    <div className="flex min-h-8 items-center gap-2 border-t border-tape-rule px-3.5 py-1.5 font-mono text-[11px] text-tape-dim">
+    <div className="relative flex min-h-8 items-center gap-2 border-t border-tape-rule px-3.5 py-1.5 font-mono text-[11px] text-tape-dim">
+      {(running || progress > 0) && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "absolute -top-px left-0 h-px transition-[width] duration-200",
+            outcome === "fail" ? "bg-record" : outcome === "pass" ? "bg-replay" : "bg-orange",
+          )}
+          style={{ width: `${Math.round(progress * 100)}%` }}
+        />
+      )}
       {running && !paused ? (
         <>
           <span className="text-[#ffd77a]">
@@ -224,8 +254,7 @@ export function StatusBar({
           </span>
           {wait ? (
             <span>
-              Keploy is working… <WaitCounter {...wait} />{" "}
-              <span className="opacity-70">(sped up)</span>
+              Keploy is working… <WaitCounter {...wait} /> (sped up)
             </span>
           ) : (
             <span>Running…</span>
@@ -269,12 +298,14 @@ export function EntryLine({ entry }: { entry: Entry }) {
   // Box-drawing tables (Keploy's diff view) must not wrap; logs should.
   // Block-art lines (the Keploy banner) need a tight line height to join up.
   const table = /[│┌├└]/.test(entry.text);
+  const captured = /captured test cases/.test(entry.text);
   const art = /[▓█▄▀▌▐▒]/.test(entry.text);
   return (
     <div
       className={cn(
-        table ? "w-max whitespace-pre" : "whitespace-pre-wrap break-words",
-        art && "w-max whitespace-pre leading-[1.05]",
+        table ? "w-max whitespace-pre leading-[1.2]" : "whitespace-pre-wrap break-words",
+        art && "w-max whitespace-pre leading-none",
+        captured && "line-flash",
       )}
     >
       <Ansi text={entry.text} />
@@ -302,6 +333,7 @@ export function PromptInput({
   label,
   autoType,
   onAutoTyped,
+  busy = false,
 }: {
   cwd: string;
   expected?: string;
@@ -312,6 +344,8 @@ export function PromptInput({
   label: string;
   autoType?: boolean;
   onAutoTyped?: () => void;
+  /** A command is running: keep focus here, show only the cursor. */
+  busy?: boolean;
 }) {
   const [value, setValue] = useState("");
   const [caret, setCaret] = useState(0);
@@ -337,6 +371,15 @@ export function PromptInput({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (busy) {
+      if (e.key === "c" && e.ctrlKey) {
+        e.preventDefault();
+        onInterrupt?.();
+      } else if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace") {
+        e.preventDefault();
+      }
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       onSubmit(value);
@@ -417,6 +460,7 @@ export function PromptInput({
         onSelect={sync}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        readOnly={busy}
         aria-describedby={hintId}
         autoComplete="off"
         autoCapitalize="off"
@@ -426,10 +470,21 @@ export function PromptInput({
         style={{ fontSize: 16 }}
       />
       <span id={hintId} className="sr-only">
-        {expected
-          ? `Expected command: ${expected}. Press Right Arrow to fill it in, then Enter to run.`
-          : "Press Enter to run."}
+        {busy
+          ? "Running. Output appears above."
+          : expected
+            ? `Expected command: ${expected}. Press Right Arrow to fill it in, then Enter to run.`
+            : "Press Enter to run."}
       </span>
+      {busy ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink",
+            focused ? "caret" : "opacity-60",
+          )}
+        />
+      ) : (
       <div aria-hidden="true" className="whitespace-pre-wrap break-all">
         <Prompt cwd={cwd} />
         <span className="text-tape-ink">{before}</span>
@@ -446,9 +501,10 @@ export function PromptInput({
         {at !== undefined ? (
           <span className="text-tape-ink">{after}</span>
         ) : (
-          <span className="text-tape-dim/70">{ghost.slice(1)}</span>
+          <span className="text-tape-dim">{ghost.slice(1)}</span>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -560,11 +616,14 @@ export function SimTerminal({
         maxHeight={maxHeight}
         label={label}
         scrollKey={shell.entries.length + (shell.entries.at(-1)?.text.length ?? 0)}
-        className="focus-within:ring-2 focus-within:ring-orange/70"
+        className={cn(
+          "transition-shadow duration-700 focus-within:ring-2 focus-within:ring-orange/70",
+          outcomeRing(shell.outcome),
+        )}
         bodyClassName="min-h-40"
         footer={
-          !busy ? (
-            <PromptInput
+          <PromptInput
+              busy={busy}
               cwd={promptCwd}
               expected={current?.cmd}
               onSubmit={submit}
@@ -578,9 +637,6 @@ export function SimTerminal({
                 if (current) void runCurrent(current.cmd);
               }}
             />
-          ) : (
-            <span className="caret inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink" />
-          )
         }
         statusBar={
           <StatusBar
