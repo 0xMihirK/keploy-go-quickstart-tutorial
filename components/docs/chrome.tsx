@@ -98,7 +98,7 @@ export function ThemeToggle() {
 
 export function Header() {
   return (
-    <header className="z-40 shrink-0 bg-paper">
+    <header data-site-header className="z-40 shrink-0 bg-paper">
       {/* Three columns: the stepper sits at the true centre whatever the sides hold. */}
       <div className="mx-auto grid h-14 max-w-[84rem] grid-cols-[1fr_auto] items-center gap-3 px-4 sm:px-8 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">

@@ -418,7 +418,12 @@ export const Terminal = ({
     const target = el.querySelector<HTMLElement>("[data-fail]") ?? summaries[summaries.length - 1];
     if (!target) return;
     pinned.current = false;
-    el.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
+    // Wait a frame for the final prompt to render, then jump (a smooth scroll
+    // would pass the bottom and re-pin to the shutdown logs).
+    requestAnimationFrame(() => {
+      pinned.current = false;
+      el.scrollTo({ top: target.offsetTop - 12, behavior: "instant" });
+    });
   }, [anchorKey]);
 
   const wrappedChildren = useMemo(() => {

@@ -295,6 +295,9 @@ figure[data-rehype-pretty-code-figure] pre {
 figure[data-rehype-pretty-code-figure] code {
   font-family: var(--font-mono);
   display: grid;
+  /* Long commands wrap inside the column; copying still gives one line. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 [data-rehype-pretty-code-title] {
   font-family: var(--font-mono);
@@ -383,8 +386,8 @@ html[data-vt="forward"] #content,
 html[data-vt="back"] #content {
   view-transition-name: slide;
 }
-html[data-vt="forward"] header,
-html[data-vt="back"] header {
+html[data-vt="forward"] [data-site-header],
+html[data-vt="back"] [data-site-header] {
   view-transition-name: site-header;
 }
 html[data-vt="forward"] nav[data-deck-ui],
