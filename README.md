@@ -2,7 +2,7 @@
 
 This is an interactive Keploy tutorial for Go developers who have never used Keploy. You record real traffic to a sample app, replay it with the database switched off, then break the app on purpose and watch a test catch it.
 
-**Live site:** https://keploy-go-record-replay.vercel.app
+**Live site:** https://keploy-tutorial-mihir-katoch.vercel.app
 
 It follows the **Running App Locally** path of Keploy's [Gin + MongoDB quickstart](https://keploy.io/docs/quickstart/samples-gin/). The Go app runs on your machine, and only MongoDB runs in Docker.
 
