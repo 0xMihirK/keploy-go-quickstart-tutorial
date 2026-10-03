@@ -18,6 +18,8 @@ const ROW_Y = (i: number) => TAPE_Y + 44 + i * 30;
 interface Hop {
   from: number;
   to: number;
+  /** What travels on this hop, shown on the moving chip. */
+  label: string;
   caption: string;
   /** x of a Keploy tap the packet passes through: it ripples. */
   tap?: number;
@@ -30,16 +32,16 @@ interface Hop {
 
 const HOPS: Record<Mode, Hop[]> = {
   record: [
-    { from: X.client, to: X.app, tap: X.proxyIn, drop: 0, caption: "Your request passes Keploy, which copies it as the start of a test case." },
-    { from: X.app2, to: X.db, tap: X.proxyOut, caption: "The app queries the database. The query goes through Keploy's proxy." },
-    { from: X.db, to: X.app2, tap: X.proxyOut, drop: 1, caption: "The database answers. Keploy saves the query and the answer as a mock." },
-    { from: X.app, to: X.client, tap: X.proxyIn, drop: 0, caption: "The app responds. Keploy stores the response as the expected result." },
+    { from: X.client, to: X.app, tap: X.proxyIn, drop: 0, label: "POST /url", caption: "Your request passes Keploy, which copies it as the start of a test case." },
+    { from: X.app2, to: X.db, tap: X.proxyOut, label: "update", caption: "The app queries the database. The query goes through Keploy's proxy." },
+    { from: X.db, to: X.app2, tap: X.proxyOut, drop: 1, label: "n: 1", caption: "The database answers. Keploy saves the query and the answer as a mock." },
+    { from: X.app, to: X.client, tap: X.proxyIn, drop: 0, label: "200", caption: "The app responds. Keploy stores the response as the expected result." },
   ],
   replay: [
-    { from: X.client, to: X.app, tap: X.proxyIn, caption: "keploy test reads the test case and sends the same request to your app." },
-    { from: X.app2, to: X.proxyOut, caption: "The app queries the database, but nothing is running there." },
-    { from: X.proxyOut, to: X.app2, rise: 1, caption: "Keploy's proxy answers with the recorded mock instead." },
-    { from: X.app, to: X.client, tap: X.proxyIn, check: true, caption: "The response matches the recording, so the test passes." },
+    { from: X.client, to: X.app, tap: X.proxyIn, label: "POST /url", caption: "keploy test reads the test case and sends the same request to your app." },
+    { from: X.app2, to: X.proxyOut, label: "update", caption: "The app queries the database, but nothing is running there." },
+    { from: X.proxyOut, to: X.app2, rise: 1, label: "n: 1", caption: "Keploy's proxy answers with the recorded mock instead." },
+    { from: X.app, to: X.client, tap: X.proxyIn, check: true, label: "200", caption: "The response matches the recording, so the test passes." },
   ],
 };
 
@@ -95,7 +97,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
   const isRec = mode === "record";
   const color = isRec ? "var(--record)" : "var(--replay)";
   const db = "MongoDB";
-  const app = "Gin app";
+  const app = "URL shortener";
   // Tape rows written so far in record mode (row 0 starts on hop 0, row 1 on hop 2).
   const written = isRec ? ([1, 1, 2, 2][shown] ?? 0) : 2;
   const reading = !isRec && hop?.rise !== undefined ? hop.rise : !isRec && shown === 0 ? 0 : null;
@@ -177,13 +179,6 @@ export function RecordReplaySim({ className }: { className?: string }) {
           <pattern id="sim-dots" width="14" height="14" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="var(--rule)" />
           </pattern>
-          <filter id="sim-glow" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="3.5" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
           <linearGradient id="sim-fade" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="var(--surface)" stopOpacity="0" />
             <stop offset="1" stopColor="var(--surface)" stopOpacity="1" />
@@ -235,7 +230,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
           {app}
         </text>
         <text x={(X.app + X.app2) / 2} y={Y + 16} textAnchor="middle" className="fill-graphite text-[12px]">
-          port 8080
+          Go app, port 8080
         </text>
 
         {/* database */}
@@ -304,9 +299,11 @@ export function RecordReplaySim({ className }: { className?: string }) {
                 <motion.rect
                   x="206"
                   y={ROW_Y(i) - 16}
+                  width="340"
                   height="24"
+                  style={{ transformBox: "fill-box", transformOrigin: "left" }}
                   initial={false}
-                  animate={{ width: visible ? 340 : 0 }}
+                  animate={{ scaleX: visible ? 1 : 0 }}
                   transition={{ duration: reduce || !visible ? 0 : 0.55, ease: "linear", delay: reduce ? 0 : 0.2 }}
                 />
               </clipPath>
@@ -317,65 +314,48 @@ export function RecordReplaySim({ className }: { className?: string }) {
           );
         })}
 
-        {/* motion: ripple, rise, packet + trail, drop */}
+        {/* motion: ripple at the tap, the labelled chip, and its copy onto the tape */}
         {hop && !reduce && (
           <g key={`${mode}-${shown}`}>
             {hop.tap !== undefined && (
               <motion.circle
                 cx={hop.tap}
                 cy={Y}
+                r="15"
                 fill="none"
                 stroke={color}
                 strokeWidth="2"
-                initial={{ r: 15, opacity: 0 }}
-                animate={{ r: [15, 32], opacity: [0.8, 0] }}
+                style={{ transformBox: "fill-box", transformOrigin: "center" }}
+                initial={{ scale: 1, opacity: 0 }}
+                animate={{ scale: [1, 2.1], opacity: [0.8, 0] }}
                 transition={{ duration: 0.7, delay: tapDelay, ease: "easeOut" }}
               />
             )}
-            {hop.rise !== undefined && (
-              <motion.circle
-                cx={X.proxyOut}
-                r="5"
-                fill="var(--replay)"
-                filter="url(#sim-glow)"
-                initial={{ cy: ROW_Y(hop.rise) - 4, opacity: 0 }}
-                animate={{ cy: Y, opacity: [0, 1, 1, 0] }}
-                transition={{ duration: 0.55, ease: EASE }}
-              />
-            )}
-            {[0.16, 0.1, 0.05].map((lag, k) => (
-              <motion.circle
-                key={k}
-                cy={Y}
-                r={5 - k}
-                fill={color}
-                opacity={0.35 - k * 0.1}
-                initial={{ cx: hop.from }}
-                animate={{ cx: hop.to }}
-                transition={{ duration: HOP_S, ease: EASE, delay: riseDelay + lag }}
-              />
-            ))}
-            <motion.circle
-              cy={Y}
-              r="6.5"
-              fill={color}
-              filter="url(#sim-glow)"
-              initial={{ cx: hop.from }}
-              animate={{ cx: hop.to }}
-              transition={{ duration: HOP_S, ease: EASE, delay: riseDelay }}
-            />
             {hop.drop !== undefined && hop.tap !== undefined && (
-              <motion.rect
-                x={hop.tap - 7}
-                width="14"
-                height="10"
-                rx="2.5"
-                fill={color}
-                initial={{ y: Y - 5, opacity: 0 }}
-                animate={{ y: ROW_Y(hop.drop) - 12, opacity: [0, 1, 1, 0] }}
+              <motion.g
+                initial={{ x: hop.tap, y: Y, scale: 0.9, opacity: 0 }}
+                animate={{ y: ROW_Y(hop.drop) - 4, scale: 0.6, opacity: [0, 1, 1, 0] }}
                 transition={{ duration: 0.6, delay: tapDelay + 0.05, ease: EASE }}
-              />
+              >
+                <Chip label={hop.label} color={color} />
+              </motion.g>
             )}
+            <motion.g
+              initial={{ x: hop.from, y: hop.rise !== undefined ? ROW_Y(hop.rise) - 4 : Y, opacity: 0 }}
+              animate={
+                hop.rise !== undefined
+                  ? { x: [hop.from, hop.from, hop.to], y: [ROW_Y(hop.rise) - 4, Y, Y], opacity: [0, 1, 1, 1, 0] }
+                  : { x: hop.to, y: Y, opacity: [0, 1, 1, 1, 0] }
+              }
+              transition={{
+                duration: riseDelay + HOP_S,
+                ease: EASE,
+                times: hop.rise !== undefined ? [0, riseDelay / (riseDelay + HOP_S), 1] : undefined,
+                opacity: { duration: riseDelay + HOP_S, times: [0, 0.1, 0.5, 0.9, 1] },
+              }}
+            >
+              <Chip label={hop.label} color={color} />
+            </motion.g>
           </g>
         )}
         <AnimatePresence>
@@ -422,10 +402,10 @@ export function RecordReplaySim({ className }: { className?: string }) {
           {hops.map((_, i) => (
             <span key={i} className="flex-1 bg-rule">
               <motion.span
-                className="block h-full"
+                className="block h-full w-full origin-left"
                 style={{ background: color }}
                 initial={false}
-                animate={{ width: i <= shown ? "100%" : "0%" }}
+                animate={{ scaleX: i <= shown ? 1 : 0 }}
                 transition={{ duration: reduce ? 0 : i === shown ? hopDuration(hops[i]) : 0.2, ease: "linear" }}
               />
             </span>
@@ -433,5 +413,18 @@ export function RecordReplaySim({ className }: { className?: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** A labelled packet on the wire: the request, query, or response in flight. */
+function Chip({ label, color }: { label: string; color: string }) {
+  const w = label.length * 7 + 18;
+  return (
+    <g>
+      <rect x={-w / 2} y={-11} width={w} height={22} rx={11} fill={color} />
+      <text x={0} y={4} textAnchor="middle" className="fill-[#0c0f14] font-mono text-[11.5px] font-semibold">
+        {label}
+      </text>
+    </g>
   );
 }

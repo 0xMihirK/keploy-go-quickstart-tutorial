@@ -63,6 +63,21 @@ export function RecordSession({
   const [anchor, setAnchor] = useState(0);
   const [front, setFront] = useState<"a" | "b">("a");
   const rootRef = useRef<HTMLDivElement>(null);
+  // Terminal 1 sits centred in the stage until Terminal 2 pops up below it.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const paneARef = useRef<HTMLDivElement>(null);
+  const [alone, setAlone] = useState(0);
+  useEffect(() => {
+    const stage = stageRef.current;
+    const pane = paneARef.current;
+    if (!stage || !pane) return;
+    const measure = () => setAlone(Math.max(0, (stage.offsetHeight - pane.offsetHeight) / 2));
+    const ro = new ResizeObserver(measure);
+    ro.observe(stage);
+    ro.observe(pane);
+    measure();
+    return () => ro.disconnect();
+  }, []);
   // Bumped on reset, so async steps from a previous loop don't act.
   const gen = useRef(0);
   const live = useLive(rootRef, playing, a, b);
@@ -171,11 +186,12 @@ export function RecordSession({
           lower right of Terminal 1 once Keploy is listening; click either to
           bring it forward. Terminal 2 is always mounted (just hidden before it
           pops up) so the stage never changes height mid-loop. */}
-      <div className="grid grid-cols-[minmax(0,1fr)]">
+      <div ref={stageRef} className="grid grid-cols-[minmax(0,1fr)]">
         <motion.div
+          ref={paneARef}
           style={{ zIndex: front === "a" ? 20 : 10 }}
-          animate={raised(!showB || front === "a")}
-          transition={RAISE}
+          animate={{ ...raised(!showB || front === "a"), y: showB ? 0 : alone }}
+          transition={reduce ? { duration: 0 } : { ...RAISE, y: { duration: 0.6, ease: RAISE.ease } }}
           onPointerDown={() => setFront("a")}
           onFocusCapture={() => setFront("a")}
           role="group"
