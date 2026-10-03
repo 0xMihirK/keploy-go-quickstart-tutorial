@@ -22,18 +22,22 @@ const BRIGHT = [
   "#f4f6fa",
 ];
 
-// Background colors are darker than the text palette so light text on them
-// (e.g. Gin's " 200 " status badges) keeps at least 4.5:1 contrast.
+// Background colors. Dark ones carry light text (Gin's " 200 " is 97;42);
+// yellow and white are light, since Gin puts grey text (90) on them for 3xx/4xx.
 const BG = [
   "#2a2f38", // black
   "#a83232", // red
   "#1f7a4a", // green
-  "#7a5a00", // yellow
+  "#e3b448", // yellow
   "#2f5fb3", // blue
   "#7a3fa8", // magenta
-  "#1d6f6a", // cyan
-  "#5c6370", // white
+  "#1b7a99", // cyan
+  "#d2d7df", // white
 ];
+const LIGHT_BG = new Set([BG[3], BG[7]]);
+// Text on a light background: grey or default text becomes near-black, the way
+// a terminal's "bright black" reads on its white.
+const INK_ON_LIGHT = "#1d2129";
 
 function xterm256(n: number): string {
   if (n < 8) return BASE[n];
@@ -96,7 +100,7 @@ function toCss(s: Style): CSSProperties | undefined {
   if (!s.fg && !s.bg && !s.bold && !s.dim && !s.italic && !s.underline)
     return undefined;
   return {
-    color: s.fg,
+    color: s.bg && LIGHT_BG.has(s.bg) && (!s.fg || s.fg === BRIGHT[0] || s.fg === BASE[0]) ? INK_ON_LIGHT : s.fg,
     backgroundColor: s.bg,
     fontWeight: s.bold ? 700 : undefined,
     opacity: s.dim ? 0.65 : undefined,

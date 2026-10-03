@@ -24,9 +24,19 @@ import {
 const READY = /Started ingress forwarding/;
 const CAPTURED = /captured test cases/;
 // How long Terminal 1 comes forward to show each captured test case.
-const PEEK_MS = 1400;
+const PEEK_MS = 1800;
 
-type Phase = "start" | "booting" | "listening" | "stopping" | "done";
+// Raising a window: the stacking order flips at once, as on a desktop, while
+// the raised window's shade fades out and it settles from 0.985 to full scale.
+// The window going back eases down and dims. Eased, not sprung, so nothing
+// overshoots, and never translucent, so nothing shows through.
+const RAISE = { duration: 0.36, ease: [0.22, 1, 0.36, 1] } as const;
+const raised = (isFront: boolean) => ({ scale: isFront ? 1 : 0.985, opacity: 1, y: 0 });
+// Time to read Terminal 2's response before Terminal 1 comes forward.
+const RESPONSE_MS = 700;
+
+// closing: after Ctrl+C, while Keploy shuts the recorder down; stopping: its auto-replay.
+type Phase = "start" | "booting" | "listening" | "closing" | "stopping" | "done";
 
 /**
  * Two terminals, like a real record session: Keploy records in the first
@@ -68,6 +78,7 @@ export function RecordSession({
   // Terminal 2 appears once Keploy is listening for requests.
   const showB =
     phase === "listening" ||
+    phase === "closing" ||
     phase === "stopping" ||
     phase === "done" ||
     b.entries.length > 0;
@@ -100,6 +111,8 @@ export function RecordSession({
     // request can't go out twice.
     const n = sent + 1;
     setSent(n);
+    await new Promise((r) => setTimeout(r, RESPONSE_MS));
+    if (gen.current !== g) return;
     // Keploy logs the captured test case in the recording pane: bring it
     // forward so the line is visible, then hand Terminal 2 back.
     setFront("a");
@@ -123,8 +136,11 @@ export function RecordSession({
     stopping.current = true;
     setFront("a");
     a.push("out", "^C");
+    setPhase("closing");
+    say("Recording stopped. Keploy is shutting down the recorder.");
+    if ((await a.stream(/auto-replay: recording stopped/)) === "aborted") return;
     setPhase("stopping");
-    say("Recording stopped. Keploy is replaying what it captured.");
+    say("Keploy is replaying what it captured.");
     if ((await a.stream()) === "aborted") return;
     setPhase("done");
     if (byReader) setDone(id, true);
@@ -161,7 +177,7 @@ export function RecordSession({
       wait = 700;
       act = () => setAutoA(true);
     } else if (phase === "listening" && !b.running && !sending && nextReq) {
-      wait = 900;
+      wait = sent > 0 ? 1500 : 900;
       act = () => setAutoB(true);
     } else if (canStop) {
       wait = 1300;
@@ -281,8 +297,8 @@ export function RecordSession({
         <motion.div
           ref={paneA}
           style={{ zIndex: front === "a" ? 20 : 10 }}
-          animate={{ scale: showB && front !== "a" ? 0.985 : 1 }}
-          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+          animate={raised(!showB || front === "a")}
+          transition={RAISE}
           onPointerDown={() => setFront("a")}
           onFocusCapture={() => setFront("a")}
           tabIndex={phase === "listening" ? 0 : -1}
@@ -300,17 +316,18 @@ export function RecordSession({
           <Terminal
             sequence={false}
             title={`Terminal 1 — ${cwd}`}
+            active={!showB || front === "a"}
             mode={outcomeMode(
               a.outcome,
               phase === "stopping"
                 ? "replay"
-                : phase === "booting" || phase === "listening"
+                : phase === "booting" || phase === "listening" || phase === "closing"
                   ? "record"
                   : null,
             )}
             controls={loopButton}
             copyText={record.cmd}
-            height="min(19rem, 46dvh)"
+            height="min(24rem, 46dvh)"
             label="Terminal 1 output"
             anchorKey={anchor}
             className={cn(
@@ -323,6 +340,7 @@ export function RecordSession({
                 busy={phase !== "start" && phase !== "done"}
                 cwd={cwd}
                 expected={phase === "start" ? record.cmd : undefined}
+                hint={!demo}
                 onSubmit={
                   phase === "start" ? submitA : (v) => a.push("cmd", v, cwd)
                 }
@@ -340,13 +358,22 @@ export function RecordSession({
             statusBar={
               <StatusBar
                 shell={a}
+                runningText={
+                  phase === "listening"
+                    ? `Recording · capturing request ${sent}…`
+                    : phase === "closing"
+                      ? "Stopping the recorder…"
+                      : undefined
+                }
                 idleText={
                   phase === "done" ? "Recording saved and replayed." : undefined
                 }
                 pausedText={
                   canStop
-                    ? "Recording · press Ctrl+C here to stop"
-                    : "Recording · waiting for requests from terminal 2"
+                    ? `Recording · ${requests.length} test cases captured · press Ctrl+C to stop`
+                    : sent > 0
+                      ? `Recording · ${sent} of ${requests.length} test cases captured`
+                      : "Recording · waiting for requests from terminal 2"
                 }
               />
             }
@@ -368,20 +395,21 @@ export function RecordSession({
               className={cn(
                 // Offset so Terminal 2's bottom always sticks out 4.5rem below
                 // Terminal 1 (heights match the two Terminal height props).
-                "relative col-start-1 row-start-2 mt-2 self-start sm:row-start-1 sm:mt-[calc(min(19rem,46dvh)_-_min(12rem,30dvh)_+_4.5rem)] sm:w-[78%] sm:justify-self-end",
+                "relative col-start-1 row-start-2 mt-2 self-start sm:row-start-1 sm:mt-[calc(min(24rem,46dvh)_-_min(12rem,30dvh)_+_4.5rem)] sm:w-[78%] sm:justify-self-end",
                 // Behind Terminal 1: hide the header's right side so no clipped bits show.
                 front !== "b" && "sm:[&_[data-controls]]:invisible",
               )}
               initial={reduce ? false : { opacity: 0, y: 18, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: front === "b" ? 1 : 0.985 }}
+              animate={raised(front === "b")}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              transition={RAISE}
               onPointerDown={() => setFront("b")}
               onFocusCapture={() => setFront("b")}
             >
               <Terminal
                 sequence={false}
                 title={`Terminal 2 — ${cwd}`}
+                active={front === "b"}
                 copyText={requests.map((r) => r.cmd).join("\n")}
                 height="min(12rem, 30dvh)"
                 className="shadow-[0_28px_60px_-20px_rgba(0,0,0,0.6)]"
@@ -392,6 +420,7 @@ export function RecordSession({
                     busy={b.running || sending}
                     cwd={cwd}
                     expected={phase === "listening" ? nextReq?.cmd : undefined}
+                    hint={!demo}
                     onSubmit={submitB}
                     onFocus={takeOver}
                     history={[]}
@@ -403,7 +432,18 @@ export function RecordSession({
                     }}
                   />
                 }
-                statusBar={<StatusBar shell={b} />}
+                statusBar={
+                  <StatusBar
+                    shell={b}
+                    idleText={
+                      phase === "closing" || phase === "stopping" || phase === "done"
+                        ? `${requests.length} requests sent and recorded.`
+                        : sent >= requests.length
+                        ? "All requests sent. Stop the recording in terminal 1."
+                        : `Request ${sent + 1} of ${requests.length} · Keploy is listening on :8080`
+                    }
+                  />
+                }
               >
                 {b.entries.map((e) => (
                   <EntryLine key={e.id} entry={e} />
@@ -443,7 +483,7 @@ function BackShade({ show }: { show: boolean }) {
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-0 rounded-xl bg-black/35 opacity-0 transition-opacity duration-300",
+        "pointer-events-none absolute inset-0 rounded-xl bg-black/35 opacity-0 transition-opacity duration-300 ease-out",
         show && "sm:opacity-100",
       )}
     />

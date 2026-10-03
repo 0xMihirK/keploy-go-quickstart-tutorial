@@ -370,11 +370,9 @@ code[data-theme] span {
 @keyframes line-flash {
   0% {
     background: color-mix(in oklab, var(--orange) 13%, transparent);
-    box-shadow: inset 2px 0 0 var(--orange);
   }
   100% {
     background: transparent;
-    box-shadow: inset 2px 0 0 transparent;
   }
 }
 .line-flash {

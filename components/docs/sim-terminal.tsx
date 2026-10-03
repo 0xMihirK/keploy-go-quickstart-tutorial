@@ -348,25 +348,28 @@ export function StatusBar({
   shell,
   idleText,
   pausedText,
+  runningText = "Running…",
 }: {
   shell: Shell;
   idleText?: string;
   pausedText?: string;
+  runningText?: string;
 }) {
   const { running, paused, held, wait, real, progress, outcome } = shell;
   // The row is always there (empty when idle) so the window doesn't reflow.
   return (
     <div className="relative flex min-h-8 items-center gap-2 border-t border-tape-rule px-3.5 py-1.5 font-mono text-[11px] text-tape-dim">
-      {(running || progress > 0) && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "absolute -top-px left-0 h-px transition-[width] duration-200",
-            outcome === "fail" ? "bg-record" : outcome === "pass" ? "bg-replay" : "bg-orange",
-          )}
-          style={{ width: `${Math.round(progress * 100)}%` }}
-        />
-      )}
+      {/* Run progress along the top edge; fades out once the command ends so
+          a finished run doesn't leave a stray line. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute -top-px left-0 h-px transition-[width,opacity] duration-500",
+          running && !paused && !held ? "opacity-100" : "opacity-0",
+          outcome === "fail" ? "bg-record" : outcome === "pass" ? "bg-replay" : "bg-orange",
+        )}
+        style={{ width: `${Math.round(progress * 100)}%` }}
+      />
       {held ? (
         <>
           <Pause className="size-3" aria-hidden="true" />
@@ -382,7 +385,7 @@ export function StatusBar({
               Keploy is working… <WaitCounter {...wait} /> (sped up)
             </span>
           ) : (
-            <span>Running…</span>
+            <span>{runningText}</span>
           )}
         </>
       ) : paused ? (
@@ -405,7 +408,7 @@ export function StatusBar({
 export function EntryLine({ entry }: { entry: Entry }) {
   if (entry.kind === "cmd") {
     return (
-      <AnimatedSpan className="text-tape-ink">
+      <AnimatedSpan className="break-all text-tape-ink">
         <span>
           <Prompt cwd={entry.cwd ?? "~"} />
           {entry.text}
@@ -430,7 +433,7 @@ export function EntryLine({ entry }: { entry: Entry }) {
   // A thin bar marks results so they stand out from the INFO logs.
   const accent = /Total test failed:\s*[1-9]/.test(plain)
     ? "shadow-[inset_2px_0_0_var(--record)]"
-    : /Total test (passed|failed):/.test(plain) || isSummary
+    : /^\s*Total (tests|test passed|test failed|time taken):/.test(plain) || isSummary
       ? "shadow-[inset_2px_0_0_var(--replay)]"
       : captured
         ? "shadow-[inset_2px_0_0_var(--orange)]"
@@ -472,6 +475,7 @@ export function PromptInput({
   autoType,
   onAutoTyped,
   busy = false,
+  hint = true,
   onFocus,
 }: {
   cwd: string;
@@ -485,6 +489,8 @@ export function PromptInput({
   onAutoTyped?: () => void;
   /** A command is running: keep focus here, show only the cursor. */
   busy?: boolean;
+  /** Show the expected command as dim text after the caret. */
+  hint?: boolean;
   onFocus?: () => void;
 }) {
   const [value, setValue] = useState("");
@@ -495,7 +501,7 @@ export function PromptInput({
   const hintId = useId();
 
   const ghost =
-    expected && caret === value.length && expected.startsWith(value)
+    hint && expected && caret === value.length && expected.startsWith(value)
       ? expected.slice(value.length)
       : "";
 
@@ -845,6 +851,7 @@ Press → to fill it in, then Enter.`
             busy={busy}
             cwd={promptCwd}
             expected={current?.cmd}
+            hint={!auto}
             onSubmit={submit}
             onInterrupt={() => (busy ? shell.interrupt() : shell.push("cmd", "^C", promptCwd))}
             onClear={() => shell.setEntries([])}

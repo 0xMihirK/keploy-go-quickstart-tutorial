@@ -123,13 +123,7 @@ The keploy.io build needs a free account. Create one at [app.keploy.io](https://
 keploy login
 ```
 
-It prints a link and waits. Open it in the browser where you're signed in, approve the sign-in, and the terminal picks it up.
-
-<Callout type="hit" title="The link expires after one minute">
-
-My first attempt failed with `authentication timed out after 1 minute`. I didn't have an account yet, and making one took longer than the link lasted.
-
-</Callout>
+It prints a link and waits. Open it in the browser where you're signed in, approve the sign-in within a minute, and the terminal picks it up.
 
 <Checkpoint id="sign-in">
 
@@ -222,11 +216,6 @@ Keploy then replays the new tests to check for noise (its log says so), writes `
 
 </Callout>
 
-<Callout type="warning" title="Sending requests from PowerShell?">
-
-In Windows PowerShell 5.1, `curl` means `Invoke-WebRequest` and fails with `A positional parameter cannot be found that accepts argument 'POST'`. Use your WSL2 terminal, or `curl.exe`.
-
-</Callout>
 
 <Checkpoint id="record">
 
@@ -414,6 +403,12 @@ Most of these happened during my run; the last three are log lines you can ignor
     <AccordionTrigger className="py-4 text-[16px]">curl: (7) Failed to connect ... Connection refused</AccordionTrigger>
     <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
       The request went out before Keploy was ready. Wait for `Started ingress forwarding` in the first terminal, then send it again.
+    </AccordionContent>
+  </AccordionItem>
+  <AccordionItem value="powershell">
+    <AccordionTrigger className="py-4 text-[16px]">A positional parameter cannot be found that accepts argument 'POST'</AccordionTrigger>
+    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
+      In Windows PowerShell 5.1, `curl` means `Invoke-WebRequest`, which doesn't understand curl's flags. Send the requests from your WSL2 terminal, or call `curl.exe`.
     </AccordionContent>
   </AccordionItem>
   <AccordionItem value="network">

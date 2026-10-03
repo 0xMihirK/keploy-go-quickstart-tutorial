@@ -281,6 +281,8 @@ interface TerminalProps {
   controls?: React.ReactNode;
   /** Change this to scroll to the run's result ([data-fail], else the last [data-summary]). */
   anchorKey?: number;
+  /** The focused window of a pair: colored traffic lights. */
+  active?: boolean;
 }
 
 function ModeBadge({ mode }: { mode: Exclude<TerminalMode, null> }) {
@@ -363,6 +365,7 @@ export const Terminal = ({
   statusBar,
   anchorKey,
   controls,
+  active = false,
 }: TerminalProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -442,7 +445,8 @@ export const Terminal = ({
     // would pass the bottom and re-pin to the shutdown logs).
     requestAnimationFrame(() => {
       pinned.current = false;
-      el.scrollTo({ top: target.offsetTop - 12, behavior: "instant" });
+      const top = (target.previousElementSibling as HTMLElement | null) ?? target;
+      el.scrollTo({ top: top.offsetTop - 8, behavior: "instant" });
     });
   }, [anchorKey]);
 
@@ -465,9 +469,9 @@ export const Terminal = ({
     >
       <div className="flex items-center gap-3 border-b border-tape-rule px-3.5 py-2">
         <div className="flex shrink-0 gap-1.5" aria-hidden="true">
-          <span className="size-2.5 rounded-full bg-[#3a4250]" />
-          <span className="size-2.5 rounded-full bg-[#3a4250]" />
-          <span className="size-2.5 rounded-full bg-[#3a4250]" />
+          <span className={cn("size-2.5 rounded-full transition-colors duration-300", active ? "bg-[#ff5f57]/85" : "bg-[#3a4250]")} />
+          <span className={cn("size-2.5 rounded-full transition-colors duration-300", active ? "bg-[#febc2e]/85" : "bg-[#3a4250]")} />
+          <span className={cn("size-2.5 rounded-full transition-colors duration-300", active ? "bg-[#28c840]/85" : "bg-[#3a4250]")} />
         </div>
         {title && (
           <span className="min-w-0 truncate font-mono text-[11.5px] text-tape-dim">
