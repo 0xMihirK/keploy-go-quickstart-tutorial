@@ -364,7 +364,7 @@ export function DeckController() {
   // (goTo already put the slide's scroll positions back at the top.)
   useEffect(() => {
     // Next applies its metadata title during hydration; set ours a frame later.
-    const title = `${SLIDES[index].title} · Keploy + Go quickstart`;
+    const title = index === 0 ? "Keploy tutorial" : `${SLIDES[index].title} · Keploy tutorial`;
     requestAnimationFrame(() => {
       document.title = title;
     });

@@ -189,22 +189,27 @@
   min-width: 0;
   max-width: 100%;
 }
-/* A soft brand-colored light behind the practice windows: orange (record)
-   up and to the left, teal (replay) down and to the right. */
+/* A soft halo behind the practice windows: the same shape as the window,
+   blurred, so it shows evenly on every side. Orange (record) blends into
+   teal (replay) across it. */
 [data-lab] > .lab-glow {
   position: absolute;
-  inset: -1.25rem;
+  inset: 0.5rem;
   max-width: none;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(70% 70% at 18% 20%, color-mix(in oklab, var(--orange) var(--glow), transparent), transparent 75%),
-    radial-gradient(70% 70% at 82% 82%, color-mix(in oklab, var(--replay) var(--glow), transparent), transparent 75%);
-  filter: blur(30px);
-  --glow: 26%;
+  border-radius: 1.5rem;
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--orange) var(--glow), transparent),
+    color-mix(in oklab, var(--replay) var(--glow), transparent)
+  );
+  filter: blur(var(--glow-blur));
+  --glow: 45%;
+  --glow-blur: 28px;
 }
 .dark [data-lab] > .lab-glow {
-  --glow: 34%;
+  --glow: 42%;
 }
 
 /* ---------- Prose (MDX body) ----------
