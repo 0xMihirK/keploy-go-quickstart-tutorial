@@ -352,6 +352,31 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/**
+ * Scrolls a log to its newest output with the top edge on a line boundary,
+ * so the oldest visible line is never cut in half. It adds at most one
+ * line of space under the output to get there.
+ */
+function pinToBottom(el: HTMLElement, inner: HTMLElement | null) {
+  el.style.paddingBottom = "";
+  el.scrollTop = el.scrollHeight;
+  const top = el.scrollTop;
+  const rows = inner?.firstElementChild?.children;
+  if (!rows || top <= 0) return;
+  for (const row of Array.from(rows) as HTMLElement[]) {
+    const start = row.offsetTop;
+    if (start + row.offsetHeight <= top) continue;
+    if (start >= top) return;
+    const lh = parseFloat(getComputedStyle(row).lineHeight) || 20;
+    const into = (top - start) % lh;
+    if (into < 1 || lh - into < 1) return;
+    const base = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+    el.style.paddingBottom = `${base + lh - into}px`;
+    el.scrollTop = el.scrollHeight;
+    return;
+  }
+}
+
 export const Terminal = ({
   children,
   className,
@@ -416,7 +441,7 @@ export const Terminal = ({
     const inner = innerRef.current;
     if (!el || !inner) return;
     const stick = () => {
-      if (pinned.current) el.scrollTop = el.scrollHeight;
+      if (pinned.current) pinToBottom(el, inner);
     };
     const ro = new ResizeObserver(stick);
     ro.observe(inner);
@@ -453,7 +478,7 @@ export const Terminal = ({
       pinned.current = true;
       el.scrollTop = 0;
     }
-    if (el && pinned.current) el.scrollTop = el.scrollHeight;
+    if (el && pinned.current) pinToBottom(el, innerRef.current);
   }, [activeIndex, scrollKey]);
 
   // When a run ends, show its result rather than the shutdown logs after it.

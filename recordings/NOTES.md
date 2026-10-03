@@ -46,7 +46,7 @@ The files Keploy generated are in `gin-mongo/`. I left out Keploy's own `keploy/
 
 - The MongoDB address is on line 35 of `main.go` in samples-go at commit `2b0a034`.
 - The tutorial stops MongoDB before `keploy test` to show the mocks answering every query.
-- On macOS, Keploy's docs record a built binary: `go build`, then `keploy record -c "./test-app-url-shortener"`. I didn't test macOS.
+- macOS and native Windows installs follow Keploy's installation guide; this run used Linux.
 
 ## Running as a normal user
 

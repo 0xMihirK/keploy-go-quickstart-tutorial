@@ -191,7 +191,7 @@
 }
 /* Terminal output scrolled past its first line: fade the top edge. */
 [role="log"][data-scrolled] {
-  mask-image: linear-gradient(to bottom, transparent 0, #000 1.1rem);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 0.4rem);
 }
 
 /* Tab panels that hold markdown (the install tabs): same rhythm as the lesson. */
@@ -217,6 +217,14 @@ figure[data-rehype-pretty-code-figure] code[data-language="diff"] {
 }
 .tab-body > figure[data-rehype-pretty-code-figure]:first-child {
   margin-top: 0;
+}
+.tab-body figure[data-rehype-pretty-code-figure] code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tab-body figure[data-rehype-pretty-code-figure] code [data-line] {
+  padding-left: 2ch;
+  text-indent: -2ch;
 }
 .tab-body a {
   color: var(--orange-text);

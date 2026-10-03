@@ -48,64 +48,81 @@ Tested with:
 <Slide id="install">
 <Lesson>
 
-Install Keploy with the official installer from keploy.io. It sets up everything this tutorial needs, including MongoDB recording.
-
-The installer downloads `keploy` and puts it on your `PATH`. Pick your system:
+Keploy is a single command-line tool, `keploy`. Install it with the command for your system from Keploy's [installation guide](https://keploy.io/docs/server/installation/), then run `keploy` to check it.
 
 <Tabs defaultValue="linux" className="not-prose">
   <TabsList>
-    <TabsTrigger value="linux">Linux and WSL2</TabsTrigger>
+    <TabsTrigger value="linux">Linux</TabsTrigger>
     <TabsTrigger value="windows">Windows</TabsTrigger>
     <TabsTrigger value="mac">macOS</TabsTrigger>
   </TabsList>
   <TabsContent keepMounted value="linux" className="tab-body" tabIndex={-1}>
 
-```bash title="Linux or WSL2"
-curl --silent -O -L \
-  https://keploy.io/install.sh \
-  && source install.sh
+Keploy needs Linux kernel 5.10 or newer; `uname -r` shows yours.
+
+```bash title="Linux"
+curl --silent -O -L https://keploy.io/install.sh && source install.sh
 ```
 
-It uses `sudo` to move `keploy` into `/usr/local/bin`, so it may ask for your password. If Docker isn't running, it prints `Please start Docker and reinstall keploy if you have applications running on docker`. This app runs on your machine, outside Docker, so you don't need to reinstall. Start Docker before step 3, which runs MongoDB in it.
+The script asks for your password to put `keploy` in `/usr/local/bin`. If Docker isn't running, it prints `Please start Docker and reinstall keploy if you have applications running on docker`. The app in this tutorial runs outside Docker, so you don't need to reinstall; start Docker before step 3, which runs MongoDB in it.
 
   </TabsContent>
   <TabsContent keepMounted value="windows" className="tab-body" tabIndex={-1}>
 
-Use WSL2 with Ubuntu, so every command matches the Linux steps. (Keploy also ships a native Windows build.) In PowerShell:
+**WSL2 (recommended here).** The rest of this tutorial uses bash, so it runs as written inside Ubuntu. WSL needs Windows 10 version 2004 or later, or Windows 11. In PowerShell:
 
 ```powershell
 wsl --install -d Ubuntu
 ```
 
-Install Go 1.22 or newer inside Ubuntu from [go.dev/doc/install](https://go.dev/doc/install); Ubuntu 22.04's `apt install golang-go` gives Go 1.18, which can't read this sample's `go.mod`. Then turn on the distro under Docker Desktop > Settings > Resources > WSL integration. Open Ubuntu with `wsl ~` and install Keploy there:
+Then, in the Ubuntu terminal:
 
 ```bash title="Inside Ubuntu (WSL2)"
-curl --silent -O -L \
-  https://keploy.io/install.sh \
-  && source install.sh
+curl --silent -O -L https://keploy.io/install.sh && source install.sh
 ```
 
-Run every command on this page in that Ubuntu terminal, including `curl`; in PowerShell, `curl` is a different command.
+Inside Ubuntu, install Go 1.22 or newer from [go.dev/doc/install](https://go.dev/doc/install); some Ubuntu releases ship an older Go through `apt` that can't read this sample's `go.mod`. In Docker Desktop, turn on the distro under Settings > Resources > WSL integration. Run every command on this page in that Ubuntu terminal, including `curl`; in PowerShell, `curl` is a different command.
+
+**Native Windows.** Keploy also runs directly on Windows x86-64. In PowerShell, not as Administrator:
+
+```powershell title="Windows (native)"
+$ProgressPreference = 'SilentlyContinue'
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+$dir = "$env:USERPROFILE\.keploy\bin"
+New-Item -ItemType Directory -Force $dir | Out-Null
+Invoke-WebRequest -Uri "https://keploy.io/ent/dl/latest/enterprise_windows_amd64.exe" `
+  -OutFile "$dir\keploy.exe"
+Unblock-File "$dir\keploy.exe"
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($userPath -notlike "*$dir*") {
+  [Environment]::SetEnvironmentVariable("Path", "$userPath;$dir", "User")
+}
+```
+
+Open a new terminal and run `keploy` to check it.
 
   </TabsContent>
   <TabsContent keepMounted value="mac" className="tab-body" tabIndex={-1}>
 
-The same installer works on Apple silicon Macs (the macOS build is arm64 only):
+**Apple silicon.**
 
 ```bash title="macOS (Apple silicon)"
-curl --silent -O -L \
-  https://keploy.io/install.sh \
-  && source install.sh
+curl --silent -O -L https://keploy.io/install.sh && source install.sh
 ```
 
-On macOS, Keploy records a built binary, so step 4 becomes:
+Or install it with Homebrew: `brew install keploy/tap/keploy`. Check it with `keploy --version`.
 
-```bash title="macOS, step 4"
-go build
-keploy record -c "./test-app-url-shortener"
+**Intel Mac.** Keploy runs in a Linux VM through Lima:
+
+```bash title="macOS (Intel), with Lima"
+brew install lima
+limactl create --mount-writable template://debian-12
+limactl start debian-12
+limactl shell debian-12
+cd ~ && curl --silent -O -L https://keploy.io/install.sh && source install.sh
 ```
 
-macOS `sed` also needs `sed -i ''` wherever this page uses `sed -i`.
+Then run this tutorial's commands inside that shell. On macOS itself, `sed` needs `sed -i ''` wherever this page uses `sed -i`.
 
   </TabsContent>
 </Tabs>
