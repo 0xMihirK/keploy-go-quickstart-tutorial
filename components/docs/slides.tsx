@@ -146,8 +146,15 @@ export function Slide({
           ) : (
             // No region label here: the section is already labelled by its title.
             <ScrollColumn className="tall:h-full">
-              <div className={cn("prose mx-auto w-full py-8 tall:pt-12 tall:pb-12 tall-short:pt-6", id === "overview" ? "max-w-5xl" : "max-w-3xl")}>
-                <SlideHeading id={id} />
+              <div
+                className={cn(
+                  "mx-auto w-full py-8 tall:pt-12 tall:pb-12 tall-short:pt-6",
+                  // The first slide is a wide two-column hero, centred when it fits.
+                  id === "overview" ? "max-w-6xl tall:my-auto tall-short:py-6" : "prose max-w-3xl",
+                )}
+              >
+                {/* The first slide brings its own heading (IntroHero). */}
+                {id !== "overview" && <SlideHeading id={id} />}
                 {/* The last slide opens with a short recap before its links. */}
                 {id === "next" && <Recap />}
                 {children}

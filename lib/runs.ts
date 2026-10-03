@@ -102,18 +102,3 @@ export async function streamLines(
     }
   }
 }
-
-/* How many terminals are busy right now (drives the logo's spinning reels). */
-let busy = 0;
-const busyListeners = new Set<() => void>();
-export function markBusy(delta: 1 | -1) {
-  busy = Math.max(0, busy + delta);
-  busyListeners.forEach((l) => l());
-}
-export function subscribeBusy(l: () => void) {
-  busyListeners.add(l);
-  return () => {
-    busyListeners.delete(l);
-  };
-}
-export const getBusy = () => busy;

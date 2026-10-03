@@ -416,8 +416,7 @@ code[data-theme] span {
 .sim-flow line {
   animation: dash-flow 0.9s linear infinite;
 }
-.sim-flow[data-paused] line,
-.reel-spin[data-paused] {
+.sim-flow[data-paused] line {
   animation-play-state: paused;
 }
 /* A captured-test line arriving in a terminal. */
@@ -434,18 +433,6 @@ code[data-theme] span {
   margin-inline: -0.5rem;
   padding-inline: 0.5rem;
 }
-/* Tape reels in the logo turn while a terminal records or replays. */
-@keyframes reel {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.reel-spin {
-  animation: reel 1.6s linear infinite;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
 /* ---------- Slide transitions (View Transitions API) ----------
    Only the slide area moves; header and footer hold still. */
 html[data-vt="forward"] #content,
@@ -527,7 +514,34 @@ html[data-vt="theme"]::view-transition-new(root) {
   }
 }
 
+/* First slide: a dot carries the request along each tape row, then the
+   result lights up. Rows take turns (delay set inline), 6 s per loop. */
+@keyframes tape-dot {
+  0% { left: 0; opacity: 0; }
+  6% { opacity: 1; }
+  36% { left: calc(100% - 7px); opacity: 1; }
+  42%, 100% { left: calc(100% - 7px); opacity: 0; }
+}
+@keyframes tape-result {
+  0%, 34% { opacity: 0.35; }
+  42%, 92% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+.tape-dot {
+  animation: tape-dot 6s cubic-bezier(0.45, 0, 0.2, 1) infinite backwards;
+}
+.tape-result {
+  animation: tape-result 6s ease-out infinite backwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .tape-dot {
+    display: none;
+  }
+  .tape-result {
+    animation: none !important;
+    opacity: 1;
+  }
   *,
   *::before,
   *::after {

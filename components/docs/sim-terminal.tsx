@@ -17,7 +17,7 @@ import {
   type TerminalMode,
 } from "@/components/ui/terminal";
 import { Ansi, BlockArt, isBlockArt, stripAnsi } from "@/lib/ansi";
-import { loadRun, markBusy, streamLines, type RunLine } from "@/lib/runs";
+import { loadRun, streamLines, type RunLine } from "@/lib/runs";
 import { Prompt } from "./prompt";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/reduced-motion";
@@ -82,11 +82,6 @@ export function useShell() {
   const [outcome, setOutcome] = useState<"pass" | "fail" | null>(null);
   const reduce = useReducedMotion();
 
-  useEffect(() => {
-    if (!running) return;
-    markBusy(1);
-    return () => markBusy(-1);
-  }, [running]);
   const lines = useRef<RunLine[]>([]);
   const pos = useRef(0);
   const abort = useRef<AbortController | null>(null);

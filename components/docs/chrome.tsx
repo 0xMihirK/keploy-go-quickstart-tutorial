@@ -1,47 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
-import { getBusy, subscribeBusy } from "@/lib/runs";
-import { cn } from "@/lib/utils";
 import { DeckProgress, SlideMenu, Stepper } from "./slides";
-
-function Reel({ cx, color, spin }: { cx: number; color: string; spin: boolean }) {
-  return (
-    <g className="reel-spin" data-paused={spin ? undefined : ""}>
-      <circle cx={cx} cy="9" r="6" fill="none" stroke={color} strokeWidth="2" />
-      <circle cx={cx} cy="9" r="1.6" fill={color} />
-      {[0, 120, 240].map((deg) => (
-        <line
-          key={deg}
-          x1={cx}
-          y1="9"
-          // Rounded so server and browser floating point agree (hydration).
-          x2={Math.round((cx + 4.2 * Math.cos((deg * Math.PI) / 180)) * 100) / 100}
-          y2={Math.round((9 + 4.2 * Math.sin((deg * Math.PI) / 180)) * 100) / 100}
-          stroke={color}
-          strokeWidth="1.2"
-          strokeLinecap="round"
-        />
-      ))}
-    </g>
-  );
-}
-
-export function Mark({ className }: { className?: string }) {
-  // Two tape reels: record and replay. They turn while a terminal is busy.
-  const busy = useSyncExternalStore(subscribeBusy, getBusy, () => 0) > 0;
-  return (
-    <svg viewBox="0 0 28 18" aria-hidden="true" className={cn("h-[18px] w-7", className)}>
-      <Reel cx={7} color="var(--record)" spin={busy} />
-      <Reel cx={21} color="var(--replay)" spin={busy} />
-      <path d="M7 15h14" stroke="var(--graphite)" strokeWidth="1.5" />
-    </svg>
-  );
-}
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -107,9 +72,12 @@ export function Header() {
       <div className="mx-auto grid h-14 max-w-[84rem] grid-cols-[1fr_auto] items-center gap-3 px-4 sm:px-8 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <SlideMenu />
-          <span className="flex items-center gap-2 font-semibold tracking-[-0.01em] text-ink">
-            <Mark />
-            <span className="hidden min-[360px]:inline">Keploy Tutorial</span>
+          <span className="flex items-center gap-2.5 text-ink">
+            {/* Keploy's official logo (rabbit and wordmark), from keploy/website. */}
+            <Image src="/keploy-logo.svg" alt="Keploy" width={74} height={24} priority className="h-6 w-auto" />
+            <span className="hidden border-l border-rule pl-2.5 text-[15px] font-medium tracking-[-0.01em] text-graphite min-[360px]:inline">
+              Tutorial
+            </span>
           </span>
         </div>
         <div className="hidden md:block">

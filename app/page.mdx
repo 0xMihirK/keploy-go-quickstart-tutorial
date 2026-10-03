@@ -1,4 +1,4 @@
-import { StartButton, TestingTypes } from "@/components/docs/hero";
+import { IntroHero } from "@/components/docs/hero";
 import { RecordReplaySim } from "@/components/docs/record-replay-sim";
 import { Slide, Lesson, Lab, GoTo } from "@/components/docs/slides";
 import { SimTerminal, RecordSession, NoiseLab } from "@/components/docs/lazy";
@@ -13,16 +13,7 @@ import {
 
 <Slide id="overview" layout="single">
 
-Keploy turns real API traffic into tests. It records the requests your app handles and the database and API calls it makes, then replays them as tests with those dependencies mocked, with no changes to your code. Its core record-and-replay engine is open source under Apache 2.0.
-
-<TestingTypes />
-
-<div className="not-prose flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-  <StartButton />
-  <div className="max-w-xl text-[14px] leading-snug text-graphite">
-    This tutorial covers the first card with a Go app (Gin and MongoDB), in about 15 minutes. You'll need Linux or WSL2, Go 1.22+, Docker and a free Keploy account. Keploy has quickstarts for Python, Java, JavaScript and C# apps too; see the <a className="text-orange-text underline underline-offset-2 dark:text-orange" href="https://keploy.io/docs/quickstart/quickstart-filter/">quickstarts</a>.
-  </div>
-</div>
+<IntroHero />
 
 </Slide>
 
