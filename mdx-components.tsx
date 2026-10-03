@@ -1,9 +1,28 @@
+import type { ReactNode } from "react";
+import { isValidElement } from "react";
 import type { MDXComponents } from "mdx/types";
 
-import { Pre } from "@/components/docs/content";
+import { CodeFigure } from "@/components/docs/content";
+
+/** Plain text of a rendered node (for measuring inline code). */
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (isValidElement(node)) return textOf((node.props as { children?: ReactNode }).children);
+  return "";
+}
 
 const components: MDXComponents = {
-  pre: Pre,
+  // Inline code (rehype-pretty-code wraps it in a span): short tokens like -d
+  // or go.mod never split across lines; long strings may still wrap.
+  span: (props: React.ComponentProps<"span"> & { "data-rehype-pretty-code-figure"?: string }) =>
+    props["data-rehype-pretty-code-figure"] !== undefined && textOf(props.children).length <= 32 ? (
+      <span {...props} className="whitespace-nowrap" />
+    ) : (
+      <span {...props} />
+    ),
+  figure: (props: React.ComponentProps<"figure"> & { "data-rehype-pretty-code-figure"?: string }) =>
+    props["data-rehype-pretty-code-figure"] !== undefined ? <CodeFigure {...props} /> : <figure {...props} />,
   a: ({ href = "", children, ...props }) => {
     const external = /^https?:\/\//.test(href);
     return (

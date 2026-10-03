@@ -181,24 +181,27 @@ The terminal then prints `Logged in successfully!` and your plan, `You are on th
 
 This follows the **Running App Locally** path from Keploy's quickstart. The Go app runs on your machine, and only MongoDB runs in Docker, from the sample's own compose file.
 
-```bash
-git clone \
-  https://github.com/keploy/samples-go.git
+```bash title="Clone the sample"
+git clone https://github.com/keploy/samples-go.git
 cd samples-go/gin-mongo
 go mod download
 rm -rf keploy
-docker network create keploy-network \
-  2>/dev/null || true
-docker compose up -d mongo
-sed -i 's/mongoDb:27017/localhost:27017/' \
-  main.go
 ```
 
-- `go mod download` fetches the dependencies now. Without it, the first `go run` can spend minutes downloading them before the app starts.
-- `rm -rf keploy` removes the sample's example recordings, so every test you replay is your own.
-- The sample's compose file expects a Docker network named `keploy-network` and won't create it. `docker network create` makes it; if it already exists, `2>/dev/null || true` hides the error.
-- `-d` keeps MongoDB running in the background so you can reuse the terminal. Compose also prints a warning that the `version` attribute is obsolete; it's harmless. If `docker` says `permission denied` on native Linux, run `sudo usermod -aG docker $USER` and open a new shell.
-- `mongoDb:27017` (line 35 of `main.go`) only resolves inside Docker. The app runs on your machine, so `sed` points it at `localhost`. This edit is only for running the sample outside Docker; Keploy itself needs no code changes.
+`go mod download` fetches the dependencies now, so the first `go run` starts quickly. `rm -rf keploy` removes the sample's example recordings, so every test you replay is your own.
+
+```bash title="Start MongoDB"
+docker network create keploy-network
+docker compose up -d mongo
+```
+
+The sample's compose file expects a Docker network named `keploy-network`; if Docker says it already exists, carry on. `-d` keeps MongoDB running in the background. Compose also prints a warning that the `version` attribute is obsolete; it's harmless. If `docker` says `permission denied` on Linux, run `sudo usermod -aG docker $USER` and open a new shell.
+
+```bash title="Point the app at local MongoDB"
+sed -i 's/mongoDb:27017/localhost:27017/' main.go
+```
+
+`mongoDb:27017` (line 35 of `main.go`) only resolves inside Docker. The app runs on your machine, so `sed` points it at `localhost`. This edit is only for running the sample outside Docker; Keploy itself needs no code changes.
 
 <Checkpoint id="clone">
 
@@ -215,7 +218,7 @@ a running `mongoDB` container in `docker ps`.
     { cmd: "cd samples-go/gin-mongo", out: [], cwd: "~" },
     { cmd: "go mod download", out: [], cwd: "~/samples-go/gin-mongo" },
     { cmd: "rm -rf keploy", out: [], cwd: "~/samples-go/gin-mongo" },
-    { cmd: "docker network create keploy-network 2>/dev/null || true", out: [], cwd: "~/samples-go/gin-mongo" },
+    { cmd: "docker network create keploy-network", out: [], cwd: "~/samples-go/gin-mongo" },
     { cmd: "docker compose up -d mongo", out: ["level=warning msg=\"docker-compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion\"", " Container mongoDB Creating", " Container mongoDB Created", " Container mongoDB Starting", " Container mongoDB Started"], cwd: "~/samples-go/gin-mongo" },
     { cmd: "sed -i 's/mongoDb:27017/localhost:27017/' main.go", out: [], cwd: "~/samples-go/gin-mongo" },
   ]}
@@ -229,13 +232,13 @@ a running `mongoDB` container in `docker ps`.
 
 `keploy record -c` starts your app with the command you give it and records everything that crosses the network. Open a second terminal for later. In the first one, still in `samples-go/gin-mongo`:
 
-```bash
+```bash title="Terminal 1"
 keploy record -c "go run main.go handler.go"
 ```
 
 When you record as a normal user, Keploy asks for your sudo password, because its agent needs root to attach eBPF hooks to your app's network traffic. Wait for `Started ingress forwarding`, which means Keploy is listening on port 8080. Then, in the second terminal:
 
-```bash
+```bash title="Terminal 2"
 curl --request POST \
   --url http://localhost:8080/url \
   --header "content-type: application/json" \
@@ -306,8 +309,7 @@ Stop MongoDB first, so the only thing that can answer the app's queries is Keplo
 
 ```bash
 docker compose stop mongo
-keploy test -c "go run main.go handler.go" \
-  --delay 10
+keploy test -c "go run main.go handler.go" --delay 10
 ```
 
 `--delay 10` gives the app 10 seconds to start before Keploy sends requests. `go run` compiles first and the sample sleeps two seconds before connecting, so the default of 5 can be too short.
@@ -345,11 +347,9 @@ Passing tests only mean something if they fail when behavior changes. Change the
 ```
 
 ```bash
-sed -i \
-  's/StatusSeeOther/StatusMovedPermanently/' \
+sed -i 's/StatusSeeOther/StatusMovedPermanently/' \
   handler.go
-keploy test -c "go run main.go handler.go" \
-  --delay 10
+keploy test -c "go run main.go handler.go" --delay 10
 git checkout handler.go
 ```
 
@@ -389,8 +389,7 @@ cp keploy/test-set-0/tests/post-url-1.yaml \
   /tmp/post-url-1.yaml
 sed -i '/body.ts: \[\]/d' \
   keploy/test-set-0/tests/post-url-1.yaml
-keploy test -c "go run main.go handler.go" \
-  --delay 10
+keploy test -c "go run main.go handler.go" --delay 10
 cp /tmp/post-url-1.yaml \
   keploy/test-set-0/tests/post-url-1.yaml
 ```

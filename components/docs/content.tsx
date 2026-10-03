@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Children, isValidElement, useRef, useState } from "react";
 import {
   Check,
   Copy,
@@ -85,32 +85,61 @@ export function Checkpoint({
 
 /* Code block (pre override) -------------------------------------------------- */
 
-export function Pre(props: React.ComponentProps<"pre">) {
-  const ref = useRef<HTMLPreElement>(null);
+const LANG_LABEL: Record<string, string> = {
+  bash: "Terminal",
+  sh: "Terminal",
+  powershell: "PowerShell",
+  yaml: "YAML",
+  diff: "Diff",
+  go: "Go",
+};
+
+/**
+ * A highlighted code block (rehype-pretty-code's figure): a header with the
+ * block's title, or its kind, and a Copy button that's always visible.
+ */
+export function CodeFigure({ children, ...props }: React.ComponentProps<"figure">) {
+  const ref = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  let title: React.ReactNode = null;
+  let lang = "";
+  const rest: React.ReactNode[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    const p = child.props as Record<string, unknown>;
+    if (p["data-rehype-pretty-code-title"] !== undefined) title = p.children as React.ReactNode;
+    else {
+      lang = String(p["data-language"] ?? lang);
+      rest.push(child);
+    }
+  });
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(ref.current?.querySelector("pre")?.innerText.trimEnd() ?? "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked: nothing to do */
+    }
+  };
   return (
-    // The button gets its own column so long lines scroll beside it, never under it.
-    <div className="group/code flex items-start">
-      <pre ref={ref} {...props} className={cn("min-w-0 flex-1", props.className)} />
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(ref.current?.innerText.trimEnd() ?? "");
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          } catch {
-            /* ignore */
-          }
-        }}
-        aria-label={copied ? "Copied" : "Copy code"}
-        className="m-2 inline-flex shrink-0 items-center gap-1 rounded-md border border-rule bg-surface px-1.5 py-1 text-[11px] text-graphite opacity-100 transition-opacity hover:text-ink sm:opacity-0 sm:group-hover/code:opacity-100 sm:focus-visible:opacity-100"
-      >
-        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        {/* Icon only on phones, where the column is narrow. */}
-        <span className="sr-only sm:not-sr-only">{copied ? "Copied" : "Copy"}</span>
-      </button>
-    </div>
+    <figure {...props}>
+      <div className="flex items-center justify-between gap-3 border-b border-rule py-1 pr-1.5 pl-4">
+        <span className="min-w-0 truncate font-mono text-[12px] text-graphite">
+          {title ?? LANG_LABEL[lang] ?? lang}
+        </span>
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={copied ? "Copied" : "Copy code"}
+          className="relative inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-graphite transition-colors after:absolute after:-inset-1.5 after:content-[''] hover:bg-muted hover:text-ink"
+        >
+          {copied ? <Check className="size-3.5 text-replay-text" /> : <Copy className="size-3.5" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <div ref={ref}>{rest}</div>
+    </figure>
   );
 }
 
