@@ -74,18 +74,29 @@ function SlideHeading({ id }: { id: string }) {
 function Recap() {
   const progress = useProgress();
   const done = STEP_IDS.filter((id) => progress[id]).length;
+  const all = done === STEP_IDS.length;
   return (
     <div className="not-prose rounded-xl border border-replay/40 bg-replay/[0.06] px-4 py-3.5">
       <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
-        <Check className="size-4 text-replay-text" aria-hidden="true" />
-        {done === STEP_IDS.length
+        {all && <Check className="size-4 text-replay-text" aria-hidden="true" />}
+        {all
           ? `All ${STEP_IDS.length} steps checked off`
-          : `${done} of ${STEP_IDS.length} steps checked off`}
+          : `${done} of ${STEP_IDS.length} steps checked off. The steps cover:`}
       </p>
       <ul className="mt-2 grid gap-1 text-[15px] leading-snug text-ink/85">
-        <li>You recorded two requests as tests, and Keploy saved the app&apos;s MongoDB calls as mocks.</li>
-        <li>You replayed both tests with MongoDB stopped, and both passed.</li>
-        <li>You changed a redirect from 303 to 301, and the replay failed on it.</li>
+        {all ? (
+          <>
+            <li>You recorded two requests as tests, and Keploy saved the app&apos;s MongoDB calls as mocks.</li>
+            <li>You replayed both tests with MongoDB stopped, and both passed.</li>
+            <li>You changed a redirect from 303 to 301, and the replay failed on it.</li>
+          </>
+        ) : (
+          <>
+            <li>Recording two requests as tests, with the app&apos;s MongoDB calls saved as mocks.</li>
+            <li>Replaying both tests with MongoDB stopped.</li>
+            <li>Changing a redirect from 303 to 301 and watching the replay fail on it.</li>
+          </>
+        )}
       </ul>
     </div>
   );
@@ -157,9 +168,12 @@ function ScrollColumn({
   label,
   className,
   scrollClassName,
+  labScroll = false,
   children,
   ...rest
 }: {
+  /** The lab column: no scroll masks over the animated terminals. */
+  labScroll?: boolean;
   /** Names the column as a region; leave out when something else labels it. */
   label?: string;
   className?: string;
@@ -172,7 +186,8 @@ function ScrollColumn({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 8);
+    // A few pixels of overflow is not "more"; only show the pill for real content.
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 32);
     // Fires when the slide is shown (display: none to block) and when content grows.
     const ro = new ResizeObserver(check);
     ro.observe(el);
@@ -189,6 +204,8 @@ function ScrollColumn({
       <div
         ref={ref}
         data-scroll
+        data-more={more ? "" : undefined}
+        data-lab-scroll={labScroll ? "" : undefined}
         tabIndex={0}
         role={label ? "region" : undefined}
         aria-label={label}
@@ -199,6 +216,17 @@ function ScrollColumn({
       >
         {children}
       </div>
+      {/* The lab column has no mask (it would re-composite on every terminal line),
+          so a painted fade sits under the pill instead. */}
+      {labScroll && (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 hidden h-20 bg-gradient-to-t from-paper via-paper/85 to-transparent transition-opacity duration-200 tall:block",
+            more ? "opacity-100" : "opacity-0",
+          )}
+        />
+      )}
       {/* Mouse shortcut only; the column itself is focusable and scrolls with the keyboard. */}
       <button
         type="button"
@@ -226,7 +254,7 @@ export function Lesson({ children }: { children: React.ReactNode }) {
     <ScrollColumn
       label="Lesson"
       className="tall:h-full"
-      scrollClassName="pt-8 pb-6 tall:pt-12 tall:pr-12 tall:pb-10 tall-short:pt-6 tall-short:pb-6"
+      scrollClassName="pt-8 pb-6 tall:pt-12 tall:pr-12 tall:pb-16 tall-short:pt-6 tall-short:pb-16"
     >
       <div>
         <SlideHeading id={id} />
@@ -240,17 +268,17 @@ export function Lesson({ children }: { children: React.ReactNode }) {
 export function Lab({ children }: { children: React.ReactNode }) {
   return (
     <ScrollColumn
-      label="Practice"
+      label="Example"
       data-lab-col=""
-      // Runs to the page edge (and pads back in) so the glow behind the
-      // terminals has room to spread instead of being clipped by the column.
+      // Runs to the page edge (and pads back in) so the halo behind each
+      // terminal has room to spread instead of being clipped by the column.
       className="tall:-mr-8 tall:h-full"
+      labScroll
       scrollClassName="pb-8 tall:border-l tall:border-rule tall:pt-12 tall:pb-12 tall:pl-10 tall:pr-8 tall-short:pt-6 tall-short:pb-6"
     >
       {/* Centered in the column when it fits (auto margins drop to 0 when it
           doesn't, so tall labs still scroll from the top). */}
-      <div data-lab className="relative isolate tall:my-auto">
-        <div aria-hidden="true" className="lab-glow" />
+      <div data-lab className="tall:my-auto">
         {children}
       </div>
     </ScrollColumn>
@@ -336,9 +364,15 @@ export function DeckController() {
     let start: { x: number; y: number; t: number } | null = null;
     const onStart = (e: TouchEvent) => {
       const target = e.target as Element;
-      if (e.touches.length !== 1 || target.closest("[role=log],[data-no-swipe],.overflow-x-auto,input,button")) {
+      if (e.touches.length !== 1 || target.closest("[role=log],[data-no-swipe],input,button")) {
         start = null;
         return;
+      }
+      for (let el = target as HTMLElement | null; el && el !== main; el = el.parentElement) {
+        if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) {
+          start = null;
+          return;
+        }
       }
       start = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
     };
@@ -493,7 +527,7 @@ export function SlideMenu() {
         render={
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[13.5px] font-medium text-graphite hover:bg-muted hover:text-ink"
+            className="inline-flex h-10 items-center gap-1.5 rounded-md px-2 text-[13.5px] sm:h-8 font-medium text-graphite hover:bg-muted hover:text-ink"
           />
         }
       >
@@ -502,7 +536,7 @@ export function SlideMenu() {
       </SheetTrigger>
       <SheetContent side="left" className="w-[20rem] gap-0 bg-paper p-0">
         <SheetHeader className="border-b border-rule px-5 py-4">
-          <SheetTitle className="text-left">Keploy + Go quickstart</SheetTitle>
+          <SheetTitle className="text-left">Keploy tutorial</SheetTitle>
           <div className="mt-2 flex items-center gap-3 text-[13px] text-graphite">
             <div
               className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"

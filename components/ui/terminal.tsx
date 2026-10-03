@@ -279,10 +279,14 @@ interface TerminalProps {
   statusBar?: React.ReactNode;
   /** Extra controls in the title bar (e.g. play/pause). */
   controls?: React.ReactNode;
+  /** A soft brand-colored halo behind the window. */
+  glow?: boolean;
   /** Change this to scroll to the run's result ([data-fail], else the last [data-summary]). */
   anchorKey?: number;
   /** The focused window of a pair: colored traffic lights. */
   active?: boolean;
+  /** Sequence mode: called once every item has played. */
+  onDone?: () => void;
 }
 
 function ModeBadge({ mode }: { mode: Exclude<TerminalMode, null> }) {
@@ -335,7 +339,7 @@ function CopyButton({ text }: { text: string }) {
           /* clipboard blocked: nothing to do */
         }
       }}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-tape-dim transition-colors hover:bg-white/5 hover:text-tape-ink"
+      className="relative inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-tape-dim transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-white/5 hover:text-tape-ink"
       aria-label={copied ? "Copied" : "Copy commands"}
     >
       {copied ? (
@@ -343,7 +347,7 @@ function CopyButton({ text }: { text: string }) {
       ) : (
         <Copy className="size-3.5" aria-hidden="true" />
       )}
-      <span>{copied ? "Copied" : "Copy"}</span>
+      <span className="max-sm:sr-only">{copied ? "Copied" : "Copy"}</span>
     </button>
   );
 }
@@ -366,7 +370,10 @@ export const Terminal = ({
   anchorKey,
   controls,
   active = false,
+  glow = false,
+  onDone,
 }: TerminalProps) => {
+  const reduce = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const isInView = useInView(containerRef as React.RefObject<Element>, {
@@ -377,7 +384,15 @@ export const Terminal = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const sequenceHasStarted = sequence ? !startOnView || isInView : false;
   const count = Children.toArray(children).length;
-  const done = sequence ? activeIndex >= count : true;
+  const shownIndex = reduce ? count : activeIndex;
+  const done = sequence ? shownIndex >= count : true;
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
+  useEffect(() => {
+    if (sequence && done && count) onDoneRef.current?.();
+  }, [sequence, done, count]);
 
   const contextValue = useMemo<SequenceContextValue | null>(() => {
     if (!sequence) return null;
@@ -387,10 +402,10 @@ export const Terminal = ({
           index === current ? current + 1 : current,
         );
       },
-      activeIndex,
+      activeIndex: shownIndex,
       sequenceStarted: sequenceHasStarted,
     };
-  }, [sequence, activeIndex, sequenceHasStarted]);
+  }, [sequence, shownIndex, sequenceHasStarted]);
 
   // Follow new output like a real terminal. Only the reader's own input
   // (wheel, touch, keys) unpins; scrolling back to the bottom re-pins.
@@ -490,15 +505,12 @@ export const Terminal = ({
         aria-live="off"
         aria-label={label}
         aria-busy={!done}
+        // Focusable so keyboard readers can scroll back through the output.
+        tabIndex={0}
         className={cn(
-          "relative overflow-auto px-4 py-3.5 font-term text-[12.5px] leading-[1.6]",
+          "relative overflow-auto px-4 py-3.5 font-term text-[12.5px] leading-[1.6] outline-none focus-visible:ring-2 focus-visible:ring-orange/60 focus-visible:ring-inset",
           bodyClassName,
         )}
-        // Clicking anywhere in the window puts the cursor in its prompt.
-        onMouseUp={(e) => {
-          if (window.getSelection()?.toString()) return;
-          e.currentTarget.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
-        }}
         style={height ? { height } : { maxHeight }}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -514,11 +526,20 @@ export const Terminal = ({
     </div>
   );
 
-  if (!sequence) return content;
+  const framed = glow ? (
+    <div className="relative isolate">
+      <div aria-hidden="true" className="term-glow" />
+      {content}
+    </div>
+  ) : (
+    content
+  );
+
+  if (!sequence) return framed;
 
   return (
     <SequenceContext.Provider value={contextValue}>
-      {content}
+      {framed}
     </SequenceContext.Provider>
   );
 };

@@ -67,7 +67,7 @@ export default async function Image() {
           {reel("#ff5c61")}
           {reel("#2ec4bc")}
           <div style={{ marginLeft: 18, fontSize: 30, color: "#8b93a1" }}>
-            Keploy + Go quickstart
+            Keploy tutorial
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>

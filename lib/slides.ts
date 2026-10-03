@@ -31,7 +31,7 @@ export function indexOf(id: string) {
 }
 
 type VTDocument = Document & {
-  startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+  startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
 };
 
 /** True when slide changes animate with the View Transitions API. */
@@ -78,13 +78,22 @@ export function goTo(index: number, opts: { updateHash?: boolean } = {}) {
 
   // Crossfade the old slide out and the new one in, in the direction of travel.
   const root = document.documentElement;
-  root.dataset.vt = state.dir > 0 ? "forward" : "back";
-  doc
-    .startViewTransition(() => commit(i, true))
-    .finished.finally(() => {
-      delete root.dataset.vt;
+  const dir = state.dir > 0 ? "forward" : "back";
+  root.dataset.vt = dir;
+  const t = doc.startViewTransition(() => commit(i, true));
+  current = t;
+  t.ready.catch(() => {});
+  t.finished
+    .catch(() => {})
+    .finally(() => {
+      if (current === t) {
+        delete root.dataset.vt;
+        current = null;
+      }
     });
 }
+
+let current: { finished: Promise<void> } | null = null;
 
 export const next = () => goTo(state.index + 1);
 export const prev = () => goTo(state.index - 1);

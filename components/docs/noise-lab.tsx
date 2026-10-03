@@ -73,6 +73,7 @@ export function NoiseLab({
         commands={[{ cmd: command, run: on ? passRun : failRun, cwd }]}
         mode="replay"
         label={on ? "Replay with the noise rule" : "Replay without the noise rule"}
+        maxHeight="min(22rem, calc(54dvh - 9rem))"
         className="mt-3"
       />
     </div>

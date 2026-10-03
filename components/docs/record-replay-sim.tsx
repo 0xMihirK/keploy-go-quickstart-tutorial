@@ -61,7 +61,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
   const [step, setStep] = useState(-1);
   const [playing, setPlaying] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { amount: 0.6 });
+  const inView = useInView(ref, { amount: 0.3 });
   // Let hydration and first paint finish before the loop starts (mobile TBT/LCP).
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -192,7 +192,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
         <rect width="560" height="300" fill="url(#sim-dots)" opacity="0.85" />
 
         {/* wires, with traffic flowing while the sim plays */}
-        <g className={cn(active && "sim-flow")}>
+        <g className="sim-flow" data-paused={active ? undefined : ""}>
           <line x1={X.client} y1={Y} x2={X.app} y2={Y} stroke="var(--graphite)" strokeOpacity="0.45" strokeWidth="1.75" strokeDasharray="5 6" />
           <motion.line
             x1={X.app2}

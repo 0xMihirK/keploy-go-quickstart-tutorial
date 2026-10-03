@@ -3,14 +3,12 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
+  memo,
   useState,
-  useSyncExternalStore,
-  type KeyboardEvent,
 } from "react";
 import { useInView } from "motion/react";
-import { Pause, Play } from "lucide-react";
+import { Pause } from "lucide-react";
 
 import {
   AnimatedSpan,
@@ -20,10 +18,13 @@ import {
 } from "@/components/ui/terminal";
 import { Ansi, BlockArt, isBlockArt, stripAnsi } from "@/lib/ansi";
 import { loadRun, markBusy, streamLines, type RunLine } from "@/lib/runs";
-import { setDone } from "@/lib/progress";
 import { Prompt } from "./prompt";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/reduced-motion";
+import { usePageVisible } from "@/lib/page-visible";
+import { LoopButton } from "./loop-button";
+
+export { LoopButton, usePageVisible };
 
 /* ------------------------------------------------------------------ */
 /* Shell state                                                         */
@@ -46,8 +47,6 @@ export interface Cmd {
   out?: string[];
   /** Working directory shown in the prompt for this command. */
   cwd?: string;
-  /** Other spellings that count as correct. */
-  accept?: string[];
   /** Regex: pause streaming after the first matching line (e.g. "ready"). */
   pauseAt?: string;
   /** Regex: in the demo, linger on the first matching line so it can be read. */
@@ -60,36 +59,6 @@ const RUN_HOLDS: Record<string, RegExp> = {
   "01-install": /^Keploy: \d/,
 };
 const HOLD_MS = 2500;
-
-/** Demo loops stop after this many full runs until the reader presses Play. */
-export const MAX_LOOPS = 3;
-
-function subscribeVisibility(cb: () => void) {
-  document.addEventListener("visibilitychange", cb);
-  return () => document.removeEventListener("visibilitychange", cb);
-}
-
-/** False while the tab is in the background. */
-export function usePageVisible() {
-  return useSyncExternalStore(
-    subscribeVisibility,
-    () => !document.hidden,
-    () => true,
-  );
-}
-
-/** Screen-reader announcements, only while the reader drives (not the demo). */
-export function useAnnounce(driver: "demo" | "you") {
-  const [text, setText] = useState("");
-  const driverRef = useRef(driver);
-  useEffect(() => {
-    driverRef.current = driver;
-  }, [driver]);
-  const say = useCallback((s: string) => {
-    if (driverRef.current === "you") setText(s);
-  }, []);
-  return [text, say] as const;
-}
 
 interface WaitState {
   secs: number;
@@ -171,11 +140,7 @@ export function useShell() {
         return "aborted";
       } finally {
         setWait(null);
-        if (abort.current === ctrl) {
-          active.current = false;
-          heldRef.current = false;
-          setHeld(false);
-        }
+        if (abort.current === ctrl) active.current = false;
       }
       pos.current = end;
       if (end < all.length) {
@@ -235,26 +200,19 @@ export function useShell() {
   );
 
   const pause = useCallback(() => {
-    if (!active.current) return;
     heldRef.current = true;
     setHeld(true);
+  }, []);
+
+  /** Waits ms, then for as long as the shell is held (paused or off screen). */
+  const sleep = useCallback(async (ms: number) => {
+    await new Promise((r) => setTimeout(r, ms));
+    while (heldRef.current) await new Promise((r) => setTimeout(r, 120));
   }, []);
 
   const resume = useCallback(() => {
     heldRef.current = false;
     setHeld(false);
-  }, []);
-
-  /** Ctrl+C while a replay streams: stop it where it is, like a real shell. */
-  const interrupt = useCallback(() => {
-    abort.current?.abort();
-    active.current = false;
-    heldRef.current = false;
-    setHeld(false);
-    setEntries((e) => [...e, { id: nextId++, kind: "out", text: "^C" }]);
-    setRunning(false);
-    setPaused(false);
-    setWait(null);
   }, []);
 
   const reset = useCallback(() => {
@@ -277,14 +235,13 @@ export function useShell() {
 
   return {
     entries,
-    setEntries,
     push,
     exec,
     stream,
     reset,
-    interrupt,
     pause,
     resume,
+    sleep,
     running,
     paused,
     held,
@@ -324,7 +281,7 @@ function WaitCounter({ secs, ms }: WaitState) {
     const start = performance.now();
     let raf = 0;
     const tick = (t: number) => {
-      const f = Math.min(1, (t - start) / Math.max(ms, 1));
+      const f = Math.min(1, Math.max(0, (t - start) / Math.max(ms, 1)));
       setShown(secs * f);
       if (f < 1) raf = requestAnimationFrame(tick);
     };
@@ -349,11 +306,14 @@ export function StatusBar({
   idleText,
   pausedText,
   runningText = "Running…",
+  userPaused = false,
 }: {
   shell: Shell;
   idleText?: string;
   pausedText?: string;
   runningText?: string;
+  /** The reader pressed Pause (not an automatic off-screen hold). */
+  userPaused?: boolean;
 }) {
   const { running, paused, held, wait, real, progress, outcome } = shell;
   // The row is always there (empty when idle) so the window doesn't reflow.
@@ -370,7 +330,7 @@ export function StatusBar({
         )}
         style={{ width: `${Math.round(progress * 100)}%` }}
       />
-      {held ? (
+      {held && userPaused ? (
         <>
           <Pause className="size-3" aria-hidden="true" />
           <span>Paused. Press Play to continue.</span>
@@ -382,7 +342,7 @@ export function StatusBar({
           </span>
           {wait ? (
             <span>
-              Keploy is working… <WaitCounter {...wait} /> (sped up)
+              Waiting… <WaitCounter {...wait} /> (sped up)
             </span>
           ) : (
             <span>{runningText}</span>
@@ -405,7 +365,7 @@ export function StatusBar({
   );
 }
 
-export function EntryLine({ entry }: { entry: Entry }) {
+export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   if (entry.kind === "cmd") {
     return (
       <AnimatedSpan className="break-all text-tape-ink">
@@ -452,212 +412,64 @@ export function EntryLine({ entry }: { entry: Entry }) {
       <Ansi text={entry.text} />
     </div>
   );
-}
+});
 
-const norm = (s: string) =>
-  s
-    .trim()
-    .replace(/^\$\s*/, "")
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/'/g, '"')
-    .replace(/\s+/g, " ");
-
-/** The editable prompt line: hidden input + rendered text, caret and ghost hint. */
-export function PromptInput({
+/** The prompt line under the output. The loop types each command here. */
+export function PromptLine({
   cwd,
-  expected,
-  onSubmit,
-  onInterrupt,
-  onClear,
-  history,
-  label,
-  autoType,
-  onAutoTyped,
+  command,
   busy = false,
-  hint = true,
-  onFocus,
+  onTyped,
 }: {
   cwd: string;
-  expected?: string;
-  onSubmit: (value: string) => void;
-  onInterrupt?: () => void;
-  onClear?: () => void;
-  history: string[];
-  label: string;
-  autoType?: boolean;
-  onAutoTyped?: () => void;
-  /** A command is running: keep focus here, show only the cursor. */
+  /** When set, it's typed out after the prompt, then onTyped fires. */
+  command?: string;
+  /** A command is running: show only the cursor, like a real shell. */
   busy?: boolean;
-  /** Show the expected command as dim text after the caret. */
-  hint?: boolean;
-  onFocus?: () => void;
+  onTyped?: () => void;
 }) {
-  const [value, setValue] = useState("");
-  const [caret, setCaret] = useState(0);
-  const [focused, setFocused] = useState(false);
-  const [histIdx, setHistIdx] = useState<number | null>(null);
-  const ref = useRef<HTMLInputElement>(null);
-  const hintId = useId();
-
-  const ghost =
-    hint && expected && caret === value.length && expected.startsWith(value)
-      ? expected.slice(value.length)
-      : "";
-
-  const sync = () => setCaret(ref.current?.selectionStart ?? value.length);
-
-  const fill = () => {
-    if (!expected) return;
-    setValue(expected);
-    setCaret(expected.length);
-    requestAnimationFrame(() =>
-      ref.current?.setSelectionRange(expected.length, expected.length),
-    );
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (busy) {
-      if (e.key === "c" && e.ctrlKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        onInterrupt?.();
-      } else if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace") {
-        e.preventDefault();
-      }
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      onSubmit(value);
-      setValue("");
-      setCaret(0);
-      setHistIdx(null);
-    } else if (
-      ghost &&
-      (e.key === "ArrowRight" || e.key === "End" || (e.key === " " && e.ctrlKey))
-    ) {
-      e.preventDefault();
-      fill();
-    } else if (e.key === "c" && e.ctrlKey && !window.getSelection()?.toString()) {
-      e.preventDefault();
-      e.stopPropagation();
-      onInterrupt?.();
-      setValue("");
-      setCaret(0);
-    } else if (e.key === "l" && e.ctrlKey) {
-      e.preventDefault();
-      onClear?.();
-    } else if (e.key === "ArrowUp" && history.length) {
-      e.preventDefault();
-      const i = histIdx === null ? history.length - 1 : Math.max(0, histIdx - 1);
-      setHistIdx(i);
-      setValue(history[i]);
-      setCaret(history[i].length);
-    } else if (e.key === "ArrowDown" && histIdx !== null) {
-      e.preventDefault();
-      const i = histIdx + 1;
-      if (i >= history.length) {
-        setHistIdx(null);
-        setValue("");
-        setCaret(0);
-      } else {
-        setHistIdx(i);
-        setValue(history[i]);
-        setCaret(history[i].length);
-      }
-    }
-  };
-
-  if (autoType && expected) {
+  if (command) {
     return (
       <TypingAnimation
         startOnView={false}
         duration={22}
         className="text-tape-ink"
         prompt={<Prompt cwd={cwd} />}
-        onComplete={onAutoTyped}
+        onComplete={onTyped}
       >
-        {expected}
+        {command}
       </TypingAnimation>
     );
   }
-
-  const before = value.slice(0, caret);
-  const at = value[caret];
-  const after = value.slice(caret + 1);
-
   return (
-    <div
-      className="relative cursor-text"
-      onClick={() => ref.current?.focus()}
-    >
-      <label className="sr-only" htmlFor={hintId + "-in"}>
-        {label}
-      </label>
-      <input
-        ref={ref}
-        id={hintId + "-in"}
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          setCaret(e.target.selectionStart ?? e.target.value.length);
-        }}
-        onKeyDown={onKeyDown}
-        onKeyUp={sync}
-        onSelect={sync}
-        onFocus={() => {
-          setFocused(true);
-          onFocus?.();
-        }}
-        onBlur={() => setFocused(false)}
-        readOnly={busy}
-        aria-describedby={hintId}
-        autoComplete="off"
-        autoCapitalize="off"
-        autoCorrect="off"
-        spellCheck={false}
-        className="absolute inset-0 h-full w-full cursor-text opacity-0"
-        style={{ fontSize: 16 }}
-      />
-      <span id={hintId} className="sr-only">
-        {busy
-          ? "Running. Output appears above."
-          : expected
-            ? `Expected command: ${expected}. Press Right Arrow to fill it in, then Enter to run.`
-            : "Press Enter to run."}
-      </span>
-      {busy ? (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink",
-            focused ? "caret" : "opacity-60",
-          )}
-        />
-      ) : (
-      <div aria-hidden="true" className="whitespace-pre-wrap break-all">
-        <Prompt cwd={cwd} />
-        <span className="text-tape-ink">{before}</span>
-        <span
-          className={cn(
-            "relative",
-            focused
-              ? "caret bg-tape-ink text-tape"
-              : "outline outline-1 -outline-offset-1 outline-tape-dim",
-          )}
-        >
-          {at ?? (ghost ? ghost[0] : " ")}
-        </span>
-        {at !== undefined ? (
-          <span className="text-tape-ink">{after}</span>
-        ) : (
-          <span className="text-tape-dim">{ghost.slice(1)}</span>
-        )}
-      </div>
-      )}
+    <div aria-hidden="true" className="whitespace-pre-wrap break-all">
+      {!busy && <Prompt cwd={cwd} />}
+      <span className="caret inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink" />
     </div>
   );
+}
+
+/**
+ * True while a looping animation should move: not paused by the reader, on
+ * screen, and the tab in front. Streaming output holds while it's false and
+ * picks up from the same line when it's true again.
+ */
+export function useLive(
+  ref: React.RefObject<Element | null>,
+  playing: boolean,
+  ...shells: Shell[]
+) {
+  const inView = useInView(ref as React.RefObject<Element>, { amount: 0.35 });
+  const visible = usePageVisible();
+  const live = playing && inView && visible;
+  useEffect(() => {
+    for (const s of shells) {
+      if (live) s.resume();
+      else s.pause();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pause/resume are stable; only `live` matters
+  }, [live]);
+  return live;
 }
 
 /* ------------------------------------------------------------------ */
@@ -665,8 +477,6 @@ export function PromptInput({
 /* ------------------------------------------------------------------ */
 
 export interface SimTerminalProps {
-  /** Checkpoint id ticked when every command has run. */
-  id?: string;
   commands: Cmd[];
   /** Prompt directory before the first command. */
   cwd?: string;
@@ -679,8 +489,12 @@ export interface SimTerminalProps {
   label?: string;
 }
 
+/**
+ * A terminal that plays a step's commands by itself, on a loop: it types each
+ * command, streams the real captured output, holds on the result, then starts
+ * over. It pauses off screen and when the reader presses Pause.
+ */
 export function SimTerminal({
-  id,
   commands,
   cwd = "~",
   title = "bash",
@@ -688,192 +502,104 @@ export function SimTerminal({
   maxHeight = "min(28rem, 54dvh)",
   className,
   onCommandDone,
-  label = "Practice terminal",
+  label = "Terminal",
 }: SimTerminalProps) {
   const shell = useShell();
   const reduce = useReducedMotion();
   const [step, setStep] = useState(0);
-  const [auto, setAuto] = useState(false);
-  // "demo" plays the commands on a loop; "you" means the reader took over.
-  const [driver, setDriver] = useState<"demo" | "you">("demo");
-  const [history, setHistory] = useState<string[]>([]);
-  const [announce, say] = useAnnounce(driver);
+  const [typing, setTyping] = useState(false);
+  const [playing, setPlaying] = useState(true);
   const [runs, setRuns] = useState(0);
-  const [cycles, setCycles] = useState(0);
+  // A run that failed to load; stop instead of retrying forever.
+  const [broken, setBroken] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(rootRef, { amount: 0.35 });
-  const visible = usePageVisible();
+  // Bumped on restart, so a run from the previous loop can't advance the step.
+  const gen = useRef(0);
+  const live = useLive(rootRef, playing, shell);
   const done = step >= commands.length;
   const current = commands[step];
   const promptCwd = current?.cwd ?? commands[commands.length - 1]?.cwd ?? cwd;
   const busy = shell.running;
-  // Finished and not going to loop again (reduced motion, or loop limit hit).
-  const stalled = done && (reduce || cycles >= MAX_LOOPS);
+  // Reduced motion: play through once with no animation and stay on the result.
+  const finished = done && reduce;
 
-  const runCurrent = async (typed: string, byReader: boolean) => {
+  const runCurrent = async () => {
+    const g = gen.current;
     const c = commands[step];
-    shell.push("cmd", typed, promptCwd);
-    setHistory((h) => [...h, typed]);
-    say(`Running ${c.cmd}`);
-    const result = await shell.exec(c, { demo: !byReader });
+    shell.push("cmd", c.cmd, promptCwd);
+    const result = await shell.exec(c, { demo: true });
+    if (gen.current !== g) return;
     if (result === "aborted") {
-      say("Stopped");
-      // A failed load would retry forever in the demo loop.
-      setDriver("you");
+      setBroken(true);
       return;
     }
-    say(`Finished: ${c.cmd}`);
     setRuns((n) => n + 1);
     onCommandDone?.(step);
-    const next = step + 1;
-    setStep(next);
-    // Progress counts what the reader ran, not the demo loop.
-    if (byReader && next >= commands.length && id) setDone(id, true);
+    setStep(step + 1);
   };
 
   const restart = () => {
+    gen.current++;
     shell.reset();
     setStep(0);
-    setAuto(false);
+    setTyping(false);
   };
 
-  // The demo loop: type the next command, run it, hold on the result, start over.
+  // The loop: type the next command, run it, hold on the result, start over.
   useEffect(() => {
-    if (driver !== "demo" || !inView || !visible || busy || auto || stalled) return;
-    if (!done) {
-      const t = setTimeout(() => setAuto(true), step === 0 ? 700 : 1100);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => {
-      setCycles((n) => n + 1);
-      if (cycles + 1 < MAX_LOOPS) restart();
-    }, shell.outcome ? 6500 : 4000);
+    if (!live || busy || typing || broken || finished) return;
+    const t = done
+      ? setTimeout(restart, shell.outcome ? 6500 : 4000)
+      : setTimeout(
+          () => (reduce ? void runCurrent() : setTyping(true)),
+          reduce ? 0 : step === 0 ? 700 : 1100,
+        );
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- restart is stable in effect
-  }, [driver, inView, visible, busy, auto, done, stalled, step, cycles, shell.outcome]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restart/runCurrent read current state when they fire
+  }, [live, busy, typing, broken, finished, done, step, shell.outcome, reduce]);
 
-  // Leaving the screen pauses typing mid-way; it resumes from the same step.
+  // Leaving the screen mid-way through typing: retype it on return.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- cancel a half-typed demo command
-    if ((!inView || !visible) && auto) setAuto(false);
-  }, [inView, visible, auto]);
-
-  const takeOver = () => {
-    if (driver === "you") return;
-    setDriver("you");
-    setAuto(false);
-  };
-
-  const submit = (raw: string) => {
-    const value = norm(raw);
-    if (!value) {
-      shell.push("cmd", "", promptCwd);
-      return;
-    }
-    if (value === "clear") {
-      shell.setEntries([]);
-      return;
-    }
-    if (current) {
-      const ok = [current.cmd, ...(current.accept ?? [])].some((a) => norm(a) === value);
-      if (ok) {
-        void runCurrent(raw.trim(), true);
-        return;
-      }
-      shell.push("cmd", raw.trim(), promptCwd);
-      const sameTool = value.split(" ")[0] === norm(current.cmd).split(" ")[0];
-      shell.push(
-        "note",
-        sameTool
-          ? `Close. This step runs:
-  ${current.cmd}
-Press → to fill it in, then Enter.`
-          : `This practice terminal only runs the commands from this step. Next up:
-  ${current.cmd}`,
-      );
-      setHistory((h) => [...h, raw.trim()]);
-      return;
-    }
-    shell.push("cmd", raw.trim(), promptCwd);
-    shell.push("note", "That was the last command for this step. Press play in the title bar to watch it again.");
-  };
-
-  const playing = driver === "demo" && !stalled;
-  const loopButton = (
-    <button
-      type="button"
-      onClick={() => {
-        if (playing) {
-          takeOver();
-          shell.pause();
-          return;
-        }
-        shell.resume();
-        if (done) {
-          restart();
-          setCycles(0);
-        }
-        setDriver("demo");
-      }}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-tape-dim transition-colors hover:bg-white/5 hover:text-tape-ink"
-      aria-label={playing ? "Pause the demo" : "Play the demo"}
-    >
-      {playing ? <Pause className="size-3.5" aria-hidden="true" /> : <Play className="size-3.5" aria-hidden="true" />}
-      <span>{playing ? "Pause" : "Play"}</span>
-    </button>
-  );
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- cancel a half-typed command
+    if (!live && typing) setTyping(false);
+  }, [live, typing]);
 
   return (
-    <div
-      ref={rootRef}
-      className={cn("not-prose my-6", className)}
-      onPointerDown={(e) => {
-        // Clicking into the window (not its buttons) hands control to the reader.
-        if (!(e.target as Element).closest("button")) takeOver();
-      }}
-    >
+    <div ref={rootRef} className={cn("not-prose my-6", className)}>
       <Terminal
+        glow
         sequence={false}
         title={`${title} — ${promptCwd}`}
         mode={outcomeMode(shell.outcome, mode)}
-        controls={loopButton}
+        controls={
+          <LoopButton
+            playing={playing && !finished}
+            onToggle={() => (finished ? restart() : setPlaying((p) => !p))}
+          />
+        }
         copyText={commands.map((c) => c.cmd).join("\n")}
         height={maxHeight}
         label={label}
         anchorKey={shell.outcome ? runs : 0}
         scrollKey={shell.entries.length + (shell.entries.at(-1)?.text.length ?? 0)}
-        className={cn(
-          "transition-shadow duration-700 focus-within:ring-2 focus-within:ring-orange/70",
-          outcomeRing(shell.outcome),
-        )}
+        className={cn("transition-shadow duration-700", outcomeRing(shell.outcome))}
         footer={
-          <PromptInput
-            busy={busy}
+          <PromptLine
             cwd={promptCwd}
-            expected={current?.cmd}
-            hint={!auto}
-            onSubmit={submit}
-            onInterrupt={() => (busy ? shell.interrupt() : shell.push("cmd", "^C", promptCwd))}
-            onClear={() => shell.setEntries([])}
-            onFocus={takeOver}
-            history={history}
-            label={`${label}: type a command`}
-            autoType={auto && !!current}
-            onAutoTyped={() => {
-              setAuto(false);
-              if (current) void runCurrent(current.cmd, false);
+            busy={busy}
+            command={typing ? current?.cmd : undefined}
+            onTyped={() => {
+              setTyping(false);
+              if (current) void runCurrent();
             }}
           />
         }
-        statusBar={<StatusBar shell={shell} />}
+        statusBar={<StatusBar shell={shell} userPaused={!playing} />}
       >
         {shell.entries.map((e) => (
           <EntryLine key={e.id} entry={e} />
         ))}
       </Terminal>
-      <p className="sr-only" aria-live="polite">
-        {announce}
-      </p>
     </div>
   );
 }

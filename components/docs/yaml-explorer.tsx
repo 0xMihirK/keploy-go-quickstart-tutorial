@@ -116,11 +116,11 @@ export function YamlExplorer({ files }: { files: ExplorerFile[] }) {
   }, [files]);
 
   return (
-    <div className="not-prose my-7 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink">
-      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[14.5rem_minmax(0,1fr)]">
+    <div className="@container not-prose my-7 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink">
+      <div className="grid grid-cols-[minmax(0,1fr)] @xl:grid-cols-[14.5rem_minmax(0,1fr)]">
         <nav
           aria-label="Files Keploy created"
-          className="border-b border-tape-rule p-2 font-mono text-[12px] md:border-r md:border-b-0"
+          className="border-b border-tape-rule p-2 font-mono text-[12px] @xl:border-r @xl:border-b-0"
         >
           {rows.map((r) =>
             r.kind === "dir" ? (

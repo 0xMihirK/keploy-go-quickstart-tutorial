@@ -166,8 +166,8 @@
   }
 }
 /* Inline code inside accordion and tab panels matches the prose chips. */
-[data-slot="accordion-content"] code,
-[data-slot="tabs-content"] code {
+[data-slot="accordion-content"] :not(pre) > code,
+[data-slot="tabs-content"] :not(pre) > code {
   font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 0.08em 0.32em;
@@ -189,18 +189,46 @@
   min-width: 0;
   max-width: 100%;
 }
-/* A soft halo behind the practice windows: the same shape as the window,
+/* Tab panels that hold markdown (the install tabs): same rhythm as the lesson. */
+.tab-body {
+  padding-top: 0.75rem;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: color-mix(in oklab, var(--ink) 85%, transparent);
+}
+.tab-body > * {
+  margin: 0;
+}
+.tab-body > * + * {
+  margin-top: 0.85rem;
+}
+.tab-body > figure[data-rehype-pretty-code-figure] {
+  margin: 0.85rem 0 0;
+}
+.tab-body > figure[data-rehype-pretty-code-figure]:first-child {
+  margin-top: 0;
+}
+.tab-body a {
+  color: var(--orange-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.tab-body a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* A soft halo behind the terminal windows: the same shape as the window,
    blurred, so it shows evenly on every side. Orange (record) blends into
    teal (replay) across it. */
-[data-lab] > .lab-glow {
+.term-glow {
   position: absolute;
   inset: 0.5rem;
-  max-width: none;
   z-index: -1;
   pointer-events: none;
   border-radius: 1.5rem;
   background: linear-gradient(
-    120deg,
+    in oklch 120deg,
     color-mix(in oklab, var(--orange) var(--glow), transparent),
     color-mix(in oklab, var(--replay) var(--glow), transparent)
   );
@@ -208,7 +236,7 @@
   --glow: 45%;
   --glow-blur: 28px;
 }
-.dark [data-lab] > .lab-glow {
+.dark .term-glow {
   --glow: 42%;
 }
 
@@ -315,7 +343,7 @@ figure[data-rehype-pretty-code-figure] {
 figure[data-rehype-pretty-code-figure] pre {
   overflow-x: auto;
   padding: 0.95rem 0.5rem 0.95rem 1.1rem;
-  font-size: 0.86rem;
+  font-size: 0.8rem;
   line-height: 1.7;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--graphite) 35%, transparent) transparent;
@@ -324,16 +352,6 @@ figure[data-rehype-pretty-code-figure] code {
   font-family: var(--font-mono);
   display: grid;
   white-space: pre;
-}
-/* Shell commands wrap at spaces in the narrow lesson column, with a hanging
-   indent so a wrapped line still reads as one command. */
-figure[data-rehype-pretty-code-figure] code[data-language="bash"] {
-  white-space: pre-wrap;
-  overflow-wrap: normal;
-}
-figure[data-rehype-pretty-code-figure] code[data-language="bash"] [data-line] {
-  padding-left: 2ch;
-  text-indent: -2ch;
 }
 [data-rehype-pretty-code-title] {
   font-family: var(--font-mono);
@@ -387,6 +405,10 @@ code[data-theme] span {
 }
 .sim-flow line {
   animation: dash-flow 0.9s linear infinite;
+}
+.sim-flow[data-paused] line,
+.reel-spin[data-paused] {
+  animation-play-state: paused;
 }
 /* A captured-test line arriving in a terminal. */
 @keyframes line-flash {
@@ -483,10 +505,15 @@ html[data-vt="theme"]::view-transition-new(root) {
   scroll-behavior: smooth;
 }
 @media (min-width: 64rem) and (min-height: 36rem) {
-  /* Soft top edge where a column scrolls under the header. No bottom fade:
-     the "More below" pill says when a column continues. */
-  [data-scroll] {
+  /* Soft top edge where the lesson scrolls under the header, and a fade
+     under the "More below" pill so it never sits on live text. The lab
+     column holds animated terminals, so it gets no mask: a mask
+     re-composites the whole column on every new line. */
+  [data-scroll]:not([data-lab-scroll]) {
     mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
+  }
+  [data-scroll][data-more]:not([data-lab-scroll]) {
+    mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 72px), transparent);
   }
 }
 

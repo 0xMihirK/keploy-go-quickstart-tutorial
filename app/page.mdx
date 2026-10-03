@@ -20,7 +20,7 @@ import {
 
 Keploy watches the requests your Go app handles and the database calls it makes, and saves both as YAML. Replay those files later and your app gets the same answers, even with the database switched off.
 
-It takes about 15 minutes. Most steps have a practice terminal that plays back my real run, so you can watch each command, or type it yourself, before you run it on your machine.
+It takes about 15 minutes. Most steps have a terminal that plays back my real run on a loop, so you can watch each command and its output before you run it on your machine.
 
 <StartButton />
 
@@ -74,11 +74,7 @@ What I ran it on:
 
 Install the keploy.io build with the command below, not the open-source build from Keploy's GitHub releases, which mocks only HTTP and MySQL.
 
-Start Docker before you install; step 3 needs it for MongoDB. The installer downloads `keploy` and puts it on your `PATH`:
-
-```bash
-curl --silent -O -L https://keploy.io/install.sh && source install.sh
-```
+The installer downloads `keploy` and puts it on your `PATH`. Pick your system:
 
 <Tabs defaultValue="linux" className="not-prose">
   <TabsList>
@@ -86,14 +82,55 @@ curl --silent -O -L https://keploy.io/install.sh && source install.sh
     <TabsTrigger value="windows">Windows</TabsTrigger>
     <TabsTrigger value="mac">macOS</TabsTrigger>
   </TabsList>
-  <TabsContent keepMounted value="linux" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
-    It uses `sudo` to move `keploy` into `/usr/local/bin`, so it may ask for your password. If Docker isn't running, it prints `Please start Docker and reinstall keploy if you have applications running on docker`. This app runs on your machine, outside Docker, so you don't need to reinstall; start Docker before step 3.
+  <TabsContent keepMounted value="linux" className="tab-body" tabIndex={-1}>
+
+```bash title="Linux or WSL2"
+curl --silent -O -L \
+  https://keploy.io/install.sh \
+  && source install.sh
+```
+
+It uses `sudo` to move `keploy` into `/usr/local/bin`, so it may ask for your password. If Docker isn't running, it prints `Please start Docker and reinstall keploy if you have applications running on docker`. This app runs on your machine, outside Docker, so you don't need to reinstall. Start Docker before step 3, which runs MongoDB in it.
+
   </TabsContent>
-  <TabsContent keepMounted value="windows" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
-    Keploy lists a native Windows build, but Microsoft Defender blocked and quarantined it on my machine, so use WSL2. In PowerShell, run `wsl --install -d Ubuntu`. Install Go inside Ubuntu, then turn on the distro under Docker Desktop > Settings > Resources > WSL integration. Run every command on this page in the Ubuntu terminal, starting in your home directory with `wsl ~`. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel, not in a WSL distro, so I haven't tested these WSL steps.
+  <TabsContent keepMounted value="windows" className="tab-body" tabIndex={-1}>
+
+Keploy lists a native Windows build, but Microsoft Defender blocked and quarantined it on my machine, so use WSL2. In PowerShell:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Install Go 1.22 or newer inside Ubuntu from [go.dev/doc/install](https://go.dev/doc/install); Ubuntu 22.04's `apt install golang-go` gives Go 1.18, which can't read this sample's `go.mod`. Then turn on the distro under Docker Desktop > Settings > Resources > WSL integration. Open Ubuntu with `wsl ~` and install Keploy there:
+
+```bash title="Inside Ubuntu (WSL2)"
+curl --silent -O -L \
+  https://keploy.io/install.sh \
+  && source install.sh
+```
+
+Run every command on this page in that Ubuntu terminal. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel, not in a WSL distro, so I haven't tested these WSL steps.
+
   </TabsContent>
-  <TabsContent keepMounted value="mac" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
-    The installer supports Apple silicon and refuses Intel Macs. I haven't run this on a Mac. Keploy's docs say to record a built binary there: `go build`, then `keploy record -c "./test-app-url-shortener"`. macOS `sed` also needs `sed -i ''` wherever this page uses `sed -i`.
+  <TabsContent keepMounted value="mac" className="tab-body" tabIndex={-1}>
+
+The same installer supports Apple silicon and refuses Intel Macs:
+
+```bash title="macOS (Apple silicon)"
+curl --silent -O -L \
+  https://keploy.io/install.sh \
+  && source install.sh
+```
+
+I haven't run this on a Mac. Keploy's docs say to record a built binary there, so step 4 becomes:
+
+```bash title="macOS, step 4"
+go build
+keploy record -c "./test-app-url-shortener"
+```
+
+macOS `sed` also needs `sed -i ''` wherever this page uses `sed -i`.
+
   </TabsContent>
 </Tabs>
 
@@ -106,7 +143,6 @@ the Keploy banner and `Keploy: 3.8.58` or newer.
 </Lesson>
 <Lab>
 <SimTerminal
-  id="install"
   cwd="~"
   commands={[{ cmd: "curl --silent -O -L https://keploy.io/install.sh && source install.sh", run: "01-install" }]}
   label="Install terminal"
@@ -134,7 +170,6 @@ It prints a link and waits. Open it in the browser where you're signed in, appro
 </Lesson>
 <Lab>
 <SimTerminal
-  id="sign-in"
   cwd="~"
   commands={[{ cmd: "keploy login", run: "02-login" }]}
   label="Sign-in terminal"
@@ -145,15 +180,19 @@ It prints a link and waits. Open it in the browser where you're signed in, appro
 <Slide id="clone">
 <Lesson>
 
-This is the **Running App Locally** path from Keploy's quickstart: the Go app runs on your machine, not in a container. Only MongoDB runs in Docker, from the sample's own compose file.
+This follows the **Running App Locally** path from Keploy's quickstart. The Go app runs on your machine, and only MongoDB runs in Docker, from the sample's own compose file.
 
 ```bash
-git clone https://github.com/keploy/samples-go.git && cd samples-go/gin-mongo
+git clone \
+  https://github.com/keploy/samples-go.git
+cd samples-go/gin-mongo
 go mod download
 rm -rf keploy
-docker network create keploy-network 2>/dev/null || true
+docker network create keploy-network \
+  2>/dev/null || true
 docker compose up -d mongo
-sed -i 's/mongoDb:27017/localhost:27017/' main.go
+sed -i 's/mongoDb:27017/localhost:27017/' \
+  main.go
 ```
 
 - `go mod download` fetches the dependencies now. Without it, the first `go run` spent over two minutes downloading before the app started.
@@ -171,14 +210,13 @@ a running `mongoDB` container in `docker ps`.
 </Lesson>
 <Lab>
 <SimTerminal
-  id="clone"
   cwd="~"
   commands={[
     { cmd: "git clone https://github.com/keploy/samples-go.git && cd samples-go/gin-mongo", run: "03-clone", cwd: "~" },
     { cmd: "go mod download", out: [], cwd: "~/samples-go/gin-mongo" },
     { cmd: "rm -rf keploy", out: [], cwd: "~/samples-go/gin-mongo" },
     { cmd: "docker network create keploy-network 2>/dev/null || true", out: [], cwd: "~/samples-go/gin-mongo" },
-    { cmd: "docker compose up -d mongo", out: [" Container mongoDB Creating", " Container mongoDB Created", " Container mongoDB Starting", " Container mongoDB Started"], cwd: "~/samples-go/gin-mongo" },
+    { cmd: "docker compose up -d mongo", out: ["level=warning msg=\"docker-compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion\"", " Container mongoDB Creating", " Container mongoDB Created", " Container mongoDB Starting", " Container mongoDB Started"], cwd: "~/samples-go/gin-mongo" },
     { cmd: "sed -i 's/mongoDb:27017/localhost:27017/' main.go", out: [], cwd: "~/samples-go/gin-mongo" },
   ]}
   label="Setup terminal"
@@ -212,7 +250,7 @@ Stop with **Ctrl+C** in the first terminal.
 
 <Callout type="tip" title="Press Ctrl+C once">
 
-Keploy then replays the new tests to check for noise (its log says so), writes `mappings.yaml`, and uploads `mocks.yaml` to your Keploy account, which is where CI fetches it later. A second Ctrl+C skips all of that, so wait for Keploy to exit.
+Keploy then replays the new tests to check for noise, writes `mappings.yaml`, and uploads `mocks.yaml` to your Keploy account, which is where CI fetches it later. A second Ctrl+C skips all of that, so wait for Keploy to exit.
 
 </Callout>
 
@@ -242,7 +280,7 @@ two `Keploy has captured test cases` lines, then `Total test passed: 2`.
 Recording left a `keploy/` folder next to your code. Click through the files; they're the real ones from my run, and underlined lines have notes.
 
 - **Keploy added noise rules by itself.** The response's `ts` timestamp and the `Date` header change on every run, so Keploy ignores them when comparing. <GoTo id="noise">See what happens without them</GoTo>.
-- **The mocks don't go in git.** The generated `keploy/.gitignore` excludes `mocks.yaml`. The same replay uploaded the mocks to your account, and `config.yaml` holds the hash CI uses to fetch them.
+- **The mocks don't go in git.** The generated `keploy/.gitignore` excludes `mocks.yaml`. The auto-replay that ran after Ctrl+C uploaded the mocks to your account, and `config.yaml` holds the hash CI uses to fetch them.
 
 <Checkpoint id="inspect">
 
@@ -263,7 +301,8 @@ Keploy's docs stop at running the tests. I stopped MongoDB first, to see whether
 
 ```bash
 docker compose stop mongo
-keploy test -c "go run main.go handler.go" --delay 10
+keploy test -c "go run main.go handler.go" \
+  --delay 10
 ```
 
 `--delay 10` gives the app 10 seconds to start before Keploy sends requests. `go run` compiles first and the sample sleeps two seconds before connecting, so the default of 5 can be too short.
@@ -279,11 +318,10 @@ Both tests pass with no database running. When the app connected and queried, Ke
 </Lesson>
 <Lab>
 <SimTerminal
-  id="replay"
   cwd="~/samples-go/gin-mongo"
   mode="replay"
   commands={[
-    { cmd: "docker compose stop mongo", out: [" Container mongoDB Stopping", " Container mongoDB Stopped"], cwd: "~/samples-go/gin-mongo" },
+    { cmd: "docker compose stop mongo", out: ["level=warning msg=\"docker-compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion\"", " Container mongoDB Stopping", " Container mongoDB Stopped"], cwd: "~/samples-go/gin-mongo" },
     { cmd: 'keploy test -c "go run main.go handler.go" --delay 10', run: "20-gin-test", cwd: "~/samples-go/gin-mongo" },
   ]}
   label="Replay terminal"
@@ -297,17 +335,20 @@ Both tests pass with no database running. When the app connected and queried, Ke
 Passing tests only mean something if they fail when behavior changes. Change the redirect's status code on line 66 of `handler.go` and replay:
 
 ```diff title="handler.go, line 66"
-- http.StatusSeeOther
-+ http.StatusMovedPermanently
+- c.Redirect(http.StatusSeeOther, u.URL)
++ c.Redirect(http.StatusMovedPermanently, u.URL)
 ```
 
 ```bash
-sed -i 's/StatusSeeOther/StatusMovedPermanently/' handler.go
-keploy test -c "go run main.go handler.go" --delay 10
+sed -i \
+  's/StatusSeeOther/StatusMovedPermanently/' \
+  handler.go
+keploy test -c "go run main.go handler.go" \
+  --delay 10
 git checkout handler.go
 ```
 
-Keploy prints a table for each failure: recorded `303`, now `301`. Any change of status code changes what clients do; here, browsers start caching the redirect, because they cache a `301` and don't cache a `303`. The last command puts the code back.
+Keploy prints a table for each failure: recorded `303`, now `301`. Browsers cache a `301` and keep sending visitors to the cached target; they don't cache a `303`. The last command puts the code back.
 
 <Checkpoint id="break">
 
@@ -318,7 +359,6 @@ Keploy prints a table for each failure: recorded `303`, now `301`. Any change of
 </Lesson>
 <Lab>
 <SimTerminal
-  id="break"
   cwd="~/samples-go/gin-mongo"
   mode="replay"
   commands={[
@@ -340,10 +380,14 @@ The switch replays my run with the `body.ts` rule deleted from `post-url-1.yaml`
 To try it yourself (optional), back up the test, delete the rule, replay, and restore the file:
 
 ```bash
-cp keploy/test-set-0/tests/post-url-1.yaml /tmp/post-url-1.yaml
-sed -i '/body.ts: \[\]/d' keploy/test-set-0/tests/post-url-1.yaml
-keploy test -c "go run main.go handler.go" --delay 10
-cp /tmp/post-url-1.yaml keploy/test-set-0/tests/post-url-1.yaml
+cp keploy/test-set-0/tests/post-url-1.yaml \
+  /tmp/post-url-1.yaml
+sed -i '/body.ts: \[\]/d' \
+  keploy/test-set-0/tests/post-url-1.yaml
+keploy test -c "go run main.go handler.go" \
+  --delay 10
+cp /tmp/post-url-1.yaml \
+  keploy/test-set-0/tests/post-url-1.yaml
 ```
 
 When your own endpoints return timestamps or IDs, set the rule once for the whole project:
@@ -441,7 +485,7 @@ Most of these happened during my run; the last three are log lines you can ignor
 
 <Slide id="next" layout="single">
 
-- **Run it in CI.** I didn't run this in CI (my workspace couldn't create an API key); per [Keploy's CI guide](https://keploy.io/docs/ci-cd/github/), commit `keploy/` (the generated `.gitignore` leaves out mocks and reports), store an API key as `KEPLOY_API_KEY`, install Keploy and run the same `keploy test` command. CI fetches the mocks by the hash in `config.yaml`, so they must come from a green local run that uploaded them. `keploy test` exits non-zero when a test fails, which fails the job.
+- **Run it in CI.** I didn't run this in CI, because my workspace couldn't create an API key. [Keploy's CI guide](https://keploy.io/docs/ci-cd/github/) says to commit `keploy/` (the generated `.gitignore` leaves out mocks and reports), store an API key as `KEPLOY_API_KEY`, install Keploy, and run the same `keploy test` command. CI fetches the mocks by the hash in `config.yaml`, so they must come from a green local run that uploaded them. `keploy test` exits non-zero when a test fails, which fails the job.
 - **Record more cases.** Start MongoDB again with `docker compose start mongo`, run `keploy record` and send other requests, such as an unknown short code that returns 404. Each run adds a test set.
 - **Try your own service.** Nothing here is specific to the sample. Point `keploy record -c` at the command that starts your app. Don't record production data, since tests and mocks store request and response bodies as they are. The CLI help lists `keploy sanitize` for removing sensitive data from test cases; I haven't tried it.
 - **Read the reference.** [Keploy's docs](https://keploy.io/docs/) cover configuration and other languages, and the [Go samples](https://github.com/keploy/samples-go) include gRPC, MySQL and Redis apps.

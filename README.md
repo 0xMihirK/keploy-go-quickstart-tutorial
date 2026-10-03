@@ -12,7 +12,7 @@ The tutorial is one MDX page, [`app/page.mdx`](app/page.mdx), split into slides:
 
 Each step pairs a short explanation and its commands with something to watch or do:
 
-- **Practice terminals** play back my real run on a loop, with its real colors and pacing. Long waits are sped up. Click in, or start typing, and the terminal is yours: → fills in the next command and Enter runs it. Nothing runs in your browser.
+- **Terminals** play back my real run on a loop, with its real colors and pacing. Each one types its command, streams the captured output, and starts over. Long waits are sped up, and Pause stops it. Nothing runs in your browser.
 - **A two-terminal record session.** Keploy records in one terminal while `curl` requests go out from the other, and each request appears as a captured test case.
 - **A file explorer** for the `keploy/` folder Keploy generated, with notes on the lines that matter.
 - **A noise switch** replays the same test with and without Keploy's noise rule, so you can see the failure the rule prevents.
@@ -20,12 +20,12 @@ Each step pairs a short explanation and its commands with something to watch or 
 
 ## Every output is real
 
-I ran the quickstart with Keploy 3.8.58 on October 2, 2026, on Ubuntu 22.04 in a container (Docker Desktop on Windows 11, WSL2 kernel). Every command and output on the page comes from that run.
+I ran the quickstart with Keploy 3.8.58 on October 2, 2026, on Ubuntu 22.04 in a container (Docker Desktop on Windows 11, WSL2 kernel). Every command and output on the page comes from that run, or from re-running the same commands afterwards; [`recordings/NOTES.md`](recordings/NOTES.md) lists which.
 
 - [`recordings/NOTES.md`](recordings/NOTES.md) lists every command I ran, the results, where I differed from the docs, and the problems I hit.
 - [`recordings/terminal/`](recordings/terminal) holds the raw terminal sessions, captured with `script --log-timing`. The `.ansi` file is the output and the `.tm` file is its timing.
 - [`recordings/gin-mongo/`](recordings/gin-mongo) holds the files Keploy generated: the test cases, the mocks, `config.yaml` and `keploy.yml`.
-- [`scripts/import-captures.mjs`](scripts/import-captures.mjs) turns each session into `public/runs/*.json`, which the practice terminals replay.
+- [`scripts/import-captures.mjs`](scripts/import-captures.mjs) turns each session into `public/runs/*.json`, which the terminals on the page replay.
 
 To refresh the terminals after a new run, copy the captures into `recordings/terminal/` and run:
 
