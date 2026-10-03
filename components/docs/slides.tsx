@@ -129,7 +129,7 @@ export function Slide({
         >
           {layout === "split" ? (
             // Stacked (small or short windows): one centred, readable column.
-            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
+            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-rows-[minmax(0,1fr)] tall:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
               {children}
             </div>
           ) : (
@@ -185,7 +185,7 @@ function ScrollColumn({
   }, []);
 
   return (
-    <div className={cn("relative min-w-0", className)} {...rest}>
+    <div className={cn("relative min-w-0 tall:min-h-0", className)} {...rest}>
       <div
         ref={ref}
         data-scroll
