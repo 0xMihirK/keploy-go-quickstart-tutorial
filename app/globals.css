@@ -189,6 +189,23 @@
   min-width: 0;
   max-width: 100%;
 }
+/* A soft brand-colored light behind the practice windows: orange (record)
+   up and to the left, teal (replay) down and to the right. */
+[data-lab] > .lab-glow {
+  position: absolute;
+  inset: -1.25rem;
+  max-width: none;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 70% at 18% 20%, color-mix(in oklab, var(--orange) var(--glow), transparent), transparent 75%),
+    radial-gradient(70% 70% at 82% 82%, color-mix(in oklab, var(--replay) var(--glow), transparent), transparent 75%);
+  filter: blur(30px);
+  --glow: 26%;
+}
+.dark [data-lab] > .lab-glow {
+  --glow: 34%;
+}
 
 /* ---------- Prose (MDX body) ----------
    Rules target direct children so components inside keep their own styles. */
@@ -465,12 +482,6 @@ html[data-vt="theme"]::view-transition-new(root) {
      the "More below" pill says when a column continues. */
   [data-scroll] {
     mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
-  }
-  /* A faint record/replay glow behind the lab's terminals. */
-  .dark [data-lab-col] {
-    background:
-      radial-gradient(55% 40% at 25% 30%, color-mix(in oklab, var(--record) 5%, transparent), transparent 70%),
-      radial-gradient(55% 45% at 80% 75%, color-mix(in oklab, var(--replay) 6%, transparent), transparent 70%);
   }
 }
 

@@ -506,7 +506,7 @@ export const Terminal = ({
         }}
       >
         <div ref={innerRef}>
-          <div className="grid gap-y-0.5 whitespace-pre-wrap">{wrappedChildren}</div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-y-0.5 whitespace-pre-wrap">{wrappedChildren}</div>
           {footer}
         </div>
       </div>

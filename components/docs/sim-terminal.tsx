@@ -685,7 +685,7 @@ export function SimTerminal({
   cwd = "~",
   title = "bash",
   mode,
-  maxHeight = "min(22rem, 58dvh)",
+  maxHeight = "min(28rem, 54dvh)",
   className,
   onCommandDone,
   label = "Practice terminal",

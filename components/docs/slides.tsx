@@ -242,10 +242,17 @@ export function Lab({ children }: { children: React.ReactNode }) {
     <ScrollColumn
       label="Practice"
       data-lab-col=""
-      className="tall:h-full"
-      scrollClassName="pb-8 tall:border-l tall:border-rule tall:pt-12 tall:pb-10 tall:pl-12 tall-short:pt-6 tall-short:pb-6"
+      // Runs to the page edge (and pads back in) so the glow behind the
+      // terminals has room to spread instead of being clipped by the column.
+      className="tall:-mr-8 tall:h-full"
+      scrollClassName="pb-8 tall:border-l tall:border-rule tall:pt-12 tall:pb-12 tall:pl-10 tall:pr-8 tall-short:pt-6 tall-short:pb-6"
     >
-      <div data-lab>{children}</div>
+      {/* Centered in the column when it fits (auto margins drop to 0 when it
+          doesn't, so tall labs still scroll from the top). */}
+      <div data-lab className="relative isolate tall:my-auto">
+        <div aria-hidden="true" className="lab-glow" />
+        {children}
+      </div>
     </ScrollColumn>
   );
 }
