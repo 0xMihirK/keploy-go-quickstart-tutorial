@@ -36,7 +36,7 @@ It takes about 15 minutes. Most steps have a practice terminal that plays back m
 
 API tests for a Go service usually need fakes: an interface for the database, a mock that implements it, fixtures for each case. Keploy skips that. It runs your app unchanged and sits on the network between the app and everything it talks to.
 
-While you **record**, every request and response becomes a test case, and every database call and its answer becomes a mock. When you **test**, Keploy restarts the app, sends the recorded requests, and answers the database calls from the mocks.
+While you **record**, every request and response becomes a test case, and every database call and its answer becomes a mock. When you **test**, Keploy starts the app, sends the recorded requests, and answers the database calls from the mocks.
 
 On Linux, Keploy uses eBPF, a kernel feature that can reroute a program's network traffic, to pass your app's connections through its proxy, without changes to your code.
 
@@ -45,7 +45,7 @@ What I ran it on:
 <TestedOn
   rows={[
     ["Keploy", "3.8.58, from keploy.io"],
-    ["Linux", "Ubuntu 22.04 in a privileged container on Docker Desktop (Windows 11, WSL2 kernel)"],
+    ["Linux", "Ubuntu 22.04 in a privileged container (Docker Desktop on Windows 11, WSL2 kernel)"],
     ["Go", "1.24.2"],
     ["Docker", "29.7.2"],
     ["Database", "MongoDB 9.0.2"],
@@ -90,7 +90,7 @@ curl --silent -O -L https://keploy.io/install.sh && source install.sh
     It uses `sudo` to move `keploy` into `/usr/local/bin`, so it may ask for your password. If Docker isn't running, it prints `Please start Docker and reinstall keploy if you have applications running on docker`. This app runs on your machine, outside Docker, so you don't need to reinstall; start Docker before step 3.
   </TabsContent>
   <TabsContent keepMounted value="windows" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
-    Keploy lists a native Windows build, but Windows Defender blocked and quarantined it on my machine, so use WSL2. In PowerShell, run `wsl --install -d Ubuntu`. Install Go inside Ubuntu, then turn on the distro under Docker Desktop > Settings > Resources > WSL integration. Run every command on this page in the Ubuntu terminal, starting in your home directory with `wsl ~`. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel, not in a WSL distro, so I haven't tested these WSL steps.
+    Keploy lists a native Windows build, but Microsoft Defender blocked and quarantined it on my machine, so use WSL2. In PowerShell, run `wsl --install -d Ubuntu`. Install Go inside Ubuntu, then turn on the distro under Docker Desktop > Settings > Resources > WSL integration. Run every command on this page in the Ubuntu terminal, starting in your home directory with `wsl ~`. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel, not in a WSL distro, so I haven't tested these WSL steps.
   </TabsContent>
   <TabsContent keepMounted value="mac" className="pt-2 text-[15.5px] leading-relaxed text-ink/85">
     The installer supports Apple silicon and refuses Intel Macs. I haven't run this on a Mac. Keploy's docs say to record a built binary there: `go build`, then `keploy record -c "./test-app-url-shortener"`. macOS `sed` also needs `sed -i ''` wherever this page uses `sed -i`.
@@ -165,7 +165,7 @@ sed -i 's/mongoDb:27017/localhost:27017/' main.go
 - `go mod download` fetches the dependencies now. Without it, the first `go run` spent over two minutes downloading before the app started.
 - `rm -rf keploy` removes recordings that ship with the sample, made by an older Keploy, so every test you replay is your own.
 - The sample's compose file expects a Docker network named `keploy-network` and won't create it. `docker network create` makes it; if it already exists, `2>/dev/null || true` hides the error.
-- `-d` keeps MongoDB running in the background so you can reuse the terminal. Compose also prints a warning that the `version` attribute is obsolete; it's harmless.
+- `-d` keeps MongoDB running in the background so you can reuse the terminal. Compose also prints a warning that the `version` attribute is obsolete; it's harmless. If `docker` says `permission denied` on native Linux, run `sudo usermod -aG docker $USER` and open a new shell.
 - The docs say to change MongoDB's address on line 21 of `main.go`; in the current sample it's line 35. `mongoDb:27017` only resolves inside Docker, so `sed` points it at `localhost`.
 
 <Checkpoint id="clone">
@@ -201,7 +201,7 @@ a running `mongoDB` container in `docker ps`.
 keploy record -c "go run main.go handler.go"
 ```
 
-When you record or test as a normal user, Keploy asks for your sudo password (`[sudo] password for dev:` in my run), because its agent needs root to attach eBPF hooks to your app's network traffic. Wait for `Started ingress forwarding`, which means Keploy is listening on port 8080. Then, in the second terminal:
+When you record as a normal user, Keploy asks for your sudo password (`[sudo] password for dev:` in my run), because its agent needs root to attach eBPF hooks to your app's network traffic. Wait for `Started ingress forwarding`, which means Keploy is listening on port 8080. Then, in the second terminal:
 
 ```bash
 curl --request POST \
@@ -218,7 +218,7 @@ Stop with **Ctrl+C** in the first terminal.
 
 <Callout type="tip" title="Press Ctrl+C once">
 
-Keploy then replays the new tests, marks the fields that change between runs as noise, writes `mappings.yaml`, and uploads `mocks.yaml` to your Keploy account, which is where CI fetches it later. A second Ctrl+C skips all of that, so wait for Keploy to exit.
+Keploy then replays the new tests to check for noise (its log says so), writes `mappings.yaml`, and uploads `mocks.yaml` to your Keploy account, which is where CI fetches it later. A second Ctrl+C skips all of that, so wait for Keploy to exit.
 
 </Callout>
 
@@ -252,7 +252,7 @@ two `Keploy has captured test cases` lines, then `Total test passed: 2`.
 
 Recording left a `keploy/` folder next to your code. Click through the files; they're the real ones from my run, and underlined lines have notes.
 
-- **Keploy added noise rules by itself.** The replay after Ctrl+C found that the response's `ts` timestamp and the `Date` header change on every run, so Keploy ignores them when comparing. <GoTo id="noise">See what happens without them</GoTo>.
+- **Keploy added noise rules by itself.** The response's `ts` timestamp and the `Date` header change on every run, so Keploy ignores them when comparing. <GoTo id="noise">See what happens without them</GoTo>.
 - **The mocks don't go in git.** The generated `keploy/.gitignore` excludes `mocks.yaml`. The same replay uploaded the mocks to your account, and `config.yaml` holds the hash CI uses to fetch them.
 
 <Checkpoint id="inspect">
@@ -270,7 +270,7 @@ Recording left a `keploy/` folder next to your code. Click through the files; th
 <Slide id="replay">
 <Lesson>
 
-Keploy's docs stop at running the tests. I stopped MongoDB first, to see whether the mocks really stand in for it:
+Keploy's docs stop at running the tests. I stopped MongoDB first, to see whether the mocks stand in for it:
 
 ```bash
 docker compose stop mongo
@@ -387,7 +387,7 @@ Most of these happened during my run; the last three are log lines you can ignor
 
 <Accordion className="not-prose mt-6 rounded-xl border border-rule bg-surface px-5">
   <AccordionItem value="defender">
-    <AccordionTrigger className="py-4 text-[16px]">Windows Defender quarantined keploy.exe</AccordionTrigger>
+    <AccordionTrigger className="py-4 text-[16px]">Microsoft Defender quarantined keploy.exe</AccordionTrigger>
     <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
       Running it then fails with `Operation did not complete successfully because the file contains a virus or potentially unwanted software`. Use WSL2 with Ubuntu, as in step 1.
     </AccordionContent>
@@ -456,7 +456,7 @@ Most of these happened during my run; the last three are log lines you can ignor
 - The quickstart says to edit line 21 of `main.go`; the MongoDB address is on line 35.
 - The samples ship `keploy/` test sets made by an older Keploy.
 - The `keploy login` link expires after one minute, with no hint to sign up first.
-- Windows Defender blocks the native Windows build.
+- Microsoft Defender blocks the native Windows build.
 
 Written by Mihir Katoch. The raw terminal captures and generated files behind every terminal on this page are in the [recordings folder](https://github.com/0xMihirK/keploy-go-quickstart-tutorial/tree/main/recordings) of the site's repository.
 

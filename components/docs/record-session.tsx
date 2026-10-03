@@ -294,7 +294,7 @@ export function RecordSession({
             }
           }}
           role="group"
-          className="relative col-start-1 row-start-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-orange/70"
+          className="relative col-start-1 row-start-1 self-start rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-orange/70"
           aria-label="Terminal 1: keploy record"
         >
           <Terminal

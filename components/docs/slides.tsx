@@ -205,6 +205,7 @@ function ScrollColumn({
         tabIndex={-1}
         aria-hidden="true"
         onClick={() => ref.current?.scrollBy({ top: ref.current.clientHeight * 0.7 })}
+        onWheel={(e) => ref.current?.scrollBy({ top: e.deltaY })}
         className={cn(
           "absolute bottom-3 left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-rule bg-surface/95 px-3 py-1 text-[12.5px] font-medium text-graphite shadow-sm backdrop-blur transition-opacity duration-200 hover:text-ink tall:inline-flex",
           more ? "opacity-100" : "pointer-events-none opacity-0",
@@ -304,6 +305,20 @@ export function DeckController() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // In the side-by-side layout the page itself never scrolls, so a wheel in
+  // the margins (outside any column) scrolls the active lesson instead.
+  useEffect(() => {
+    const main = document.getElementById("content");
+    if (!main) return;
+    const onWheel = (e: WheelEvent) => {
+      if ((e.target as Element).closest("[data-scroll],[role=log],.overflow-auto,.overflow-x-auto")) return;
+      const lesson = document.querySelector<HTMLElement>("[data-slide][data-active] [data-scroll]");
+      if (lesson && lesson.scrollHeight > lesson.clientHeight) lesson.scrollBy({ top: e.deltaY });
+    };
+    main.addEventListener("wheel", onWheel, { passive: true });
+    return () => main.removeEventListener("wheel", onWheel);
   }, []);
 
   // Swipe left or right on touch screens. Terminals and wide tables keep
@@ -439,11 +454,9 @@ export function Stepper() {
               title={s.nav ?? s.title}
               className="group grid h-6 min-w-6 place-items-center"
             >
-              <motion.span
-                layout
-                transition={{ type: "spring", stiffness: 520, damping: 40 }}
+              <span
                 className={cn(
-                  "block h-1.5 rounded-full transition-colors duration-300",
+                  "block h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out",
                   here ? "w-7 bg-ink" : "w-3.5 group-hover:bg-graphite/60",
                   !here && (done ? "bg-replay" : i < index ? "bg-graphite/45" : "bg-rule"),
                 )}

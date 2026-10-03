@@ -4,8 +4,8 @@ These are my notes from running Keploy's Gin + MongoDB quickstart on October 2, 
 
 ## Setup
 
-- The host was Windows 11 Home with Docker Desktop 29.7.2. Docker Desktop's Linux VM runs the WSL2 kernel 6.18.40.1-microsoft-standard-WSL2.
-- The clean run happened in a privileged Ubuntu 22.04 container on that kernel, with Go 1.24.2. It used the host network and ran as root. I repeated the record step afterwards as a normal user (see below).
+- The host was Windows 11 Home with Docker Engine 29.7.2 (Docker Desktop). Docker Desktop's Linux VM runs the WSL2 kernel 6.18.40.1-microsoft-standard-WSL2.
+- The clean run happened in a privileged Ubuntu 22.04 container on that kernel, with Go 1.24.2. It used the host network and ran as root, with the samples cloned under `/home/dev`, which is why the captured paths read `/home/dev/samples-go/...`. I repeated the record step afterwards as a normal user (see below).
 - I installed Keploy with `curl --silent -O -L https://keploy.io/install.sh && source install.sh`, which installed **Keploy 3.8.58**. The output is in `terminal/01-install.ansi`.
 - MongoDB came from the sample's compose file (`docker compose up -d mongo`). The `mongo` image resolved to **MongoDB 9.0.2** (`mongod --version`).
 - Samples: `keploy/samples-go` at commit `2b0a034` (September 4, 2026).

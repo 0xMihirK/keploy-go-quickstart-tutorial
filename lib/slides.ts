@@ -44,12 +44,20 @@ export const supportsViewTransitions = () =>
  * enough (and flushSync would fail when called from an effect).
  */
 function commit(i: number, sync = false) {
-  if (sync) flushSync(emit);
-  else emit();
-  document.getElementById("content")?.scrollTo({ top: 0, behavior: "instant" });
-  document
-    .querySelectorAll<HTMLElement>(`[data-slide="${SLIDES[i].id}"] [data-scroll]`)
-    .forEach((el) => el.scrollTo({ top: 0, behavior: "instant" }));
+  const toTop = () => {
+    document.getElementById("content")?.scrollTo({ top: 0, behavior: "instant" });
+    document
+      .querySelectorAll<HTMLElement>(`[data-slide="${SLIDES[i].id}"] [data-scroll]`)
+      .forEach((el) => el.scrollTo({ top: 0, behavior: "instant" }));
+  };
+  if (sync) {
+    flushSync(emit);
+    toTop();
+  } else {
+    // Not flushed: the slide is still hidden now, so reset once it has rendered.
+    emit();
+    requestAnimationFrame(toTop);
+  }
 }
 
 export function goTo(index: number, opts: { updateHash?: boolean } = {}) {

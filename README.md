@@ -20,7 +20,7 @@ Each step pairs a short explanation and its commands with something to watch or 
 
 ## Every output is real
 
-I ran the quickstart with Keploy 3.8.58 on 2 October 2026, on Ubuntu 22.04, in a container on Docker Desktop (Windows 11, WSL2 kernel). Nothing on the page is invented:
+I ran the quickstart with Keploy 3.8.58 on October 2, 2026, on Ubuntu 22.04 in a container (Docker Desktop on Windows 11, WSL2 kernel). Every command and output on the page comes from that run.
 
 - [`recordings/NOTES.md`](recordings/NOTES.md) lists every command I ran, the results, where I differed from the docs, and the problems I hit.
 - [`recordings/terminal/`](recordings/terminal) holds the raw terminal sessions, captured with `script --log-timing`. The `.ansi` file is the output and the `.tm` file is its timing.
@@ -67,7 +67,7 @@ scripts/                capture converter
 
 ## Why I built it this way
 
-- **Slides instead of one long scroll.** Each step fits on one screen with its terminal beside it, so you never have to scroll away from what you're doing.
+- **Slides instead of one long scroll.** Each step keeps its terminal beside the explanation; long lessons scroll in their own column.
 - **Recorded runs, not a fake shell.** A shell in the browser would need a backend, and it still couldn't run Keploy's eBPF hooks. Replaying captured sessions keeps the output honest and the site static.
 - **Linux first.** Microsoft Defender quarantined the native Windows build on my machine, so the tutorial sends Windows readers to WSL2 and explains why.
 - **The terminal draws Keploy's banner itself.** Browsers render block characters such as `▓` with dithered font glyphs. The site draws them as cell-sized shapes, the way terminal apps do.

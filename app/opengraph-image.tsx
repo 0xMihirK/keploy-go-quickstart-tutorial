@@ -71,7 +71,7 @@ export default async function Image() {
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 84, fontWeight: 700, letterSpacing: -3, lineHeight: 1.02 }}>
+          <div style={{ fontSize: 76, fontWeight: 700, letterSpacing: -3, lineHeight: 1.02 }}>
             Test a Go API by recording it
           </div>
           <div style={{ marginTop: 26, fontSize: 32, color: "#b4bcc8", maxWidth: 940, lineHeight: 1.35 }}>

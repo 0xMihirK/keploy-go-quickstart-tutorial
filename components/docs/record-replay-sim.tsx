@@ -61,9 +61,20 @@ export function RecordReplaySim({ className }: { className?: string }) {
   const [step, setStep] = useState(-1);
   const [playing, setPlaying] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { amount: 0.35 });
+  const inView = useInView(ref, { amount: 0.6 });
+  // Let hydration and first paint finish before the loop starts (mobile TBT/LCP).
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    if (w.requestIdleCallback) {
+      w.requestIdleCallback(() => setReady(true), { timeout: 2500 });
+      return;
+    }
+    const t = setTimeout(() => setReady(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
   const hops = HOPS[mode];
-  const active = playing && inView && !reduce;
+  const active = playing && inView && !reduce && ready;
 
   useEffect(() => {
     if (!active) return;

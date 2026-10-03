@@ -54,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: startSlideScript }} />
         <style dangerouslySetInnerHTML={{ __html: startSlideCss }} />
         <noscript>
-          <style>{"body{height:auto!important;overflow:visible!important;display:block!important}main{overflow:visible!important}[data-slide]{display:block!important;margin-bottom:6rem}[data-deck-ui]{display:none!important}"}</style>
+          <style>{"body{height:auto!important;overflow:visible!important;display:block!important}main{overflow:visible!important}[data-slide]{display:block!important;margin-bottom:6rem}[data-deck-ui],[data-controls]{display:none!important}"}</style>
         </noscript>
       </head>
       <body className="flex h-dvh flex-col overflow-hidden antialiased">

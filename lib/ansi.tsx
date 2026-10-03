@@ -22,6 +22,19 @@ const BRIGHT = [
   "#f4f6fa",
 ];
 
+// Background colors are darker than the text palette so light text on them
+// (e.g. Gin's " 200 " status badges) keeps at least 4.5:1 contrast.
+const BG = [
+  "#2a2f38", // black
+  "#a83232", // red
+  "#1f7a4a", // green
+  "#7a5a00", // yellow
+  "#2f5fb3", // blue
+  "#7a3fa8", // magenta
+  "#1d6f6a", // cyan
+  "#5c6370", // white
+];
+
 function xterm256(n: number): string {
   if (n < 8) return BASE[n];
   if (n < 16) return BRIGHT[n - 8];
@@ -60,10 +73,10 @@ function apply(style: Style, codes: number[]): Style {
     else if (c === 24) s.underline = false;
     else if (c >= 30 && c <= 37) s.fg = BASE[c - 30];
     else if (c === 39) delete s.fg;
-    else if (c >= 40 && c <= 47) s.bg = BASE[c - 40];
+    else if (c >= 40 && c <= 47) s.bg = BG[c - 40];
     else if (c === 49) delete s.bg;
     else if (c >= 90 && c <= 97) s.fg = BRIGHT[c - 90];
-    else if (c >= 100 && c <= 107) s.bg = BRIGHT[c - 100];
+    else if (c >= 100 && c <= 107) s.bg = BG[c - 100];
     else if ((c === 38 || c === 48) && codes[i + 1] === 5) {
       const color = xterm256(codes[i + 2] ?? 7);
       if (c === 38) s.fg = color;

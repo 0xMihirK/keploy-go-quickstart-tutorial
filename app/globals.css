@@ -303,6 +303,16 @@ figure[data-rehype-pretty-code-figure] code {
   display: grid;
   white-space: pre;
 }
+/* Shell commands wrap at spaces in the narrow lesson column, with a hanging
+   indent so a wrapped line still reads as one command. */
+figure[data-rehype-pretty-code-figure] code[data-language="bash"] {
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+}
+figure[data-rehype-pretty-code-figure] code[data-language="bash"] [data-line] {
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
 [data-rehype-pretty-code-title] {
   font-family: var(--font-mono);
   font-size: 0.78rem;
