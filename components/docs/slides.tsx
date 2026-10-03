@@ -38,7 +38,7 @@ function SlideHeading({ id }: { id: string }) {
   const progress = useProgress();
   return (
     <header className="mb-6 tall-short:mb-4">
-      <p className="text-[14px] font-medium text-graphite">
+      <p className="text-[15px] font-medium text-graphite">
         {stepNo >= 0 ? (
           <>
             Step {stepNo + 1} of {STEP_IDS.length}
@@ -58,7 +58,7 @@ function SlideHeading({ id }: { id: string }) {
       <h2
         id={`${id}-title`}
         className={cn(
-          "mt-1.5 font-semibold tracking-[-0.03em] text-balance text-ink",
+          "mt-2 font-semibold tracking-[-0.035em] text-balance text-ink",
           id === "overview"
             ? "text-[2.4rem] leading-[1.02] sm:text-[3rem] tall-short:text-[2.4rem]"
             : "text-[1.85rem] leading-[1.1] sm:text-[2.1rem]",
@@ -76,14 +76,16 @@ function Recap() {
   const done = STEP_IDS.filter((id) => progress[id]).length;
   const all = done === STEP_IDS.length;
   return (
-    <div className="not-prose rounded-xl border border-replay/40 bg-replay/[0.06] px-4 py-3.5">
+    <div className={cn("not-prose rounded-lg border px-4 py-3.5", all ? "border-replay/40 bg-replay/[0.06]" : "border-rule bg-surface")}>
       <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
         {all && <Check className="size-4 text-replay-text" aria-hidden="true" />}
         {all
           ? `All ${STEP_IDS.length} steps checked off`
-          : `${done} of ${STEP_IDS.length} steps checked off. The steps cover:`}
+          : done === 0
+            ? "The steps cover:"
+            : `${done} of ${STEP_IDS.length} steps checked off. The steps cover:`}
       </p>
-      <ul className="mt-2 grid gap-1 text-[15px] leading-snug text-ink/85">
+      <ul className="mt-2 grid list-disc gap-1 pl-5 text-[15px] leading-snug text-ink/85 marker:text-graphite">
         {all ? (
           <>
             <li>You recorded two requests as tests, and Keploy saved the app&apos;s MongoDB calls as mocks.</li>
@@ -150,7 +152,7 @@ export function Slide({
                 className={cn(
                   "mx-auto w-full py-8 tall:pt-12 tall:pb-12 tall-short:pt-6",
                   // The first slide is a wide two-column hero, centred when it fits.
-                  id === "overview" ? "max-w-6xl tall:my-auto tall-short:py-6" : "prose max-w-3xl",
+                  id === "overview" ? "max-w-none tall:my-auto tall-short:py-6" : "prose max-w-[42rem] text-[16.5px]",
                 )}
               >
                 {/* The first slide brings its own heading (IntroHero). */}
@@ -242,7 +244,9 @@ function ScrollColumn({
         onClick={() => ref.current?.scrollBy({ top: ref.current.clientHeight * 0.7 })}
         onWheel={(e) => ref.current?.scrollBy({ top: e.deltaY })}
         className={cn(
-          "absolute bottom-3 left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-rule bg-surface/95 px-3 py-1 text-[12.5px] font-medium text-graphite shadow-sm backdrop-blur transition-opacity duration-200 hover:text-ink tall:inline-flex",
+          "absolute bottom-3 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-rule bg-surface/95 px-3 py-1 text-[12.5px] font-medium text-graphite shadow-sm backdrop-blur transition-opacity duration-200 hover:text-ink tall:inline-flex",
+          // Centred on the text: the lesson column has 3rem of right padding.
+          labScroll ? "left-1/2" : "left-[calc(50%-1.5rem)]",
           more ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       >
@@ -440,7 +444,7 @@ export function DeckFooter() {
           type="button"
           onClick={prev}
           disabled={!before}
-          className="group inline-flex h-10 min-w-0 items-center gap-2 justify-self-start rounded-lg px-3 text-[14.5px] text-graphite transition-colors hover:bg-muted hover:text-ink disabled:invisible"
+          className="group -ml-3 inline-flex h-10 min-w-0 items-center gap-2 justify-self-start rounded-lg px-3 text-[14.5px] text-graphite transition-colors hover:bg-muted hover:text-ink disabled:invisible"
         >
           <ArrowLeft className="size-4 shrink-0 transition-transform group-hover:-translate-x-0.5" aria-hidden="true" />
           <span className="hidden truncate sm:inline">{before ? before.nav ?? before.title : ""}</span>
@@ -456,10 +460,13 @@ export function DeckFooter() {
           <button
             type="button"
             onClick={next}
-            className="group inline-flex h-10 min-w-0 items-center gap-2 justify-self-end rounded-lg bg-ink px-4 text-[14.5px] font-medium text-paper transition-[background-color,transform] hover:bg-ink/85 active:scale-[0.97]"
+            className={cn(
+              "group inline-flex h-10 min-w-0 items-center gap-2 justify-self-end rounded-lg px-4 text-[14.5px] font-medium transition-[background-color,transform] active:scale-[0.97]",
+              index === 0 ? "border border-rule text-ink hover:bg-muted" : "bg-ink text-paper hover:bg-ink/85",
+            )}
           >
             <span className="truncate">
-              <span className="hidden text-paper/65 sm:inline">Next: </span>
+              <span className={cn("hidden sm:inline", index === 0 ? "text-graphite" : "text-paper/65")}>Next: </span>
               {after.nav ?? after.title}
             </span>
             <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
@@ -505,7 +512,7 @@ export function Stepper() {
                 className={cn(
                   "block h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out",
                   here ? "w-7 bg-ink" : "w-3.5 group-hover:bg-graphite/60",
-                  !here && (done ? "bg-replay" : i < index ? "bg-graphite/45" : "bg-rule"),
+                  !here && (done ? "bg-replay" : i < index ? "bg-graphite/60" : "bg-graphite/30"),
                 )}
               />
             </button>
@@ -533,7 +540,7 @@ export function SlideMenu() {
         render={
           <button
             type="button"
-            className="inline-flex h-10 items-center gap-1.5 rounded-md px-2 text-[13.5px] sm:h-8 font-medium text-graphite hover:bg-muted hover:text-ink"
+            className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-md px-2 text-[13.5px] sm:h-8 font-medium text-graphite hover:bg-muted hover:text-ink"
           />
         }
       >

@@ -23,20 +23,20 @@ export function NoiseLab({
   const [on, setOn] = useState(true);
   return (
     <div className="not-prose my-7">
-      <div className="overflow-hidden rounded-xl border border-rule bg-surface">
-        <div className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-3">
+      <div className="overflow-hidden rounded-xl border border-tape-rule bg-tape">
+        <div className="flex items-center gap-3 border-b border-tape-rule px-4 py-3">
           <button
             type="button"
             role="switch"
             aria-checked={on}
             onClick={() => setOn((v) => !v)}
-            className="inline-flex items-center gap-2.5 text-[14.5px] font-medium text-ink"
+            className="inline-flex items-center gap-2.5 whitespace-nowrap text-[14.5px] font-medium text-tape-ink"
           >
             <span
               aria-hidden="true"
               className={cn(
                 "relative h-5 w-9 rounded-full transition-colors",
-                on ? "bg-replay" : "bg-graphite/40",
+                on ? "bg-replay" : "bg-white/20",
               )}
             >
               <span
@@ -46,13 +46,13 @@ export function NoiseLab({
                 )}
               />
             </span>
-            Ignore <code className="font-mono text-[0.9em]">body.ts</code> while comparing
+            Ignore <code className="font-mono text-[0.9em]">body.ts</code>
           </button>
-          <span className={cn("ml-auto text-[13px] font-medium", on ? "text-replay-text" : "text-record-text")}>
+          <span className={cn("ml-auto whitespace-nowrap text-[13px] font-medium", on ? "text-[#5fe0d8]" : "text-[#ff8a8e]")}>
             {on ? "Expect: pass" : "Expect: fail"}
           </span>
         </div>
-        <pre className="overflow-x-auto bg-tape px-4 py-3 font-mono text-[12.5px] leading-[1.7] text-tape-ink">
+        <pre className="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-[1.7] text-tape-ink">
           <span className="text-tape-dim"># keploy/test-set-0/tests/post-url-1.yaml</span>
           {"\n"}
           <span className="text-[#93c0ff]">  assertions</span>:{"\n"}
@@ -73,7 +73,7 @@ export function NoiseLab({
         commands={[{ cmd: command, run: on ? passRun : failRun, cwd }]}
         mode="replay"
         label={on ? "Replay with the noise rule" : "Replay without the noise rule"}
-        maxHeight="min(22rem, calc(54dvh - 9rem))"
+        maxHeight="min(22rem, calc(54dvh - 12rem))"
         className="mt-3"
       />
     </div>

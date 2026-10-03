@@ -161,19 +161,28 @@
   display: none;
 }
 @media (min-width: 64rem) and (min-height: 36rem) {
-  [data-scroll] {
+  [data-scroll]:not([data-lab-scroll]) {
     scrollbar-gutter: stable;
   }
 }
+
+/* Practice terminal height: short on phones (fewer empty rows), taller on
+   big screens, and bound by the window height everywhere. */
+:root {
+  --term-h: min(18rem, 42dvh);
+}
+@media (min-width: 64rem) and (min-height: 36rem) {
+  :root {
+    --term-h: min(36rem, 54dvh);
+  }
+}
 /* Inline code inside accordion and tab panels matches the prose chips. */
-[data-slot="accordion-content"] code:not(pre code),
 [data-slot="tabs-content"] code:not(pre code) {
   font-family: var(--font-mono);
-  font-size: 0.85em;
-  padding: 0.08em 0.32em;
+  font-size: 0.8em;
+  padding: 0.12em 0.36em;
   border-radius: 0.3rem;
   background: var(--muted);
-  border: 1px solid var(--rule);
 }
 /* Lab column: one consistent rhythm, whatever component comes first. */
 [data-lab],
@@ -201,8 +210,8 @@ figure[data-rehype-pretty-code-figure] code[data-language="diff"] {
 }
 
 .tab-body {
-  padding-top: 0.75rem;
-  font-size: 15.5px;
+  padding-top: 1rem;
+  font-size: 16.5px;
   line-height: 1.65;
   color: color-mix(in oklab, var(--ink) 85%, transparent);
 }
@@ -210,10 +219,13 @@ figure[data-rehype-pretty-code-figure] code[data-language="diff"] {
   margin: 0;
 }
 .tab-body > * + * {
-  margin-top: 0.85rem;
+  margin-top: 1em;
 }
 .tab-body > figure[data-rehype-pretty-code-figure] {
-  margin: 0.85rem 0 0;
+  margin: 1.25rem 0 0;
+}
+.tab-body > figure[data-rehype-pretty-code-figure] + * {
+  margin-top: 1.25rem;
 }
 .tab-body > figure[data-rehype-pretty-code-figure]:first-child {
   margin-top: 0;
@@ -335,11 +347,10 @@ figure[data-rehype-pretty-code-figure] code[data-language="diff"] {
 }
 :is(.prose, .prose > [data-only]) > :is(p, ul, ol, h2, h3):not(.not-prose) code:not(pre code) {
   font-family: var(--font-mono);
-  font-size: 0.85em;
-  padding: 0.08em 0.32em;
+  font-size: 0.8em;
+  padding: 0.12em 0.36em;
   border-radius: 0.3rem;
   background: var(--muted);
-  border: 1px solid var(--rule);
   overflow-wrap: anywhere;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -352,9 +363,23 @@ figure[data-rehype-pretty-code-figure] code[data-language="diff"] {
 figure[data-rehype-pretty-code-figure] {
   margin: 1.4em 0;
   border: 1px solid var(--rule);
-  border-radius: 0.6rem;
+  border-radius: var(--radius);
   background: var(--surface);
   overflow: hidden;
+}
+/* Phones: long commands wrap under a hanging indent instead of clipping. */
+@media (max-width: 40rem) {
+  figure[data-rehype-pretty-code-figure] pre {
+    padding-right: 1.1rem;
+  }
+  figure[data-rehype-pretty-code-figure] pre code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  figure[data-rehype-pretty-code-figure] pre code [data-line] {
+    padding-left: 2ch;
+    text-indent: -2ch;
+  }
 }
 /* Long commands scroll sideways instead of breaking mid-token. The Copy
    button sits in its own column beside the pre (see Pre), so it never covers code. */
@@ -518,7 +543,7 @@ html[data-vt="theme"]::view-transition-new(root) {
     mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
   }
   [data-scroll][data-more]:not([data-lab-scroll]) {
-    mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 72px), transparent);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 104px), transparent calc(100% - 28px));
   }
 }
 

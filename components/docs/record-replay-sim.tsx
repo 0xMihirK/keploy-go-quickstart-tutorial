@@ -33,8 +33,8 @@ interface Hop {
 const HOPS: Record<Mode, Hop[]> = {
   record: [
     { from: X.client, to: X.app, tap: X.proxyIn, drop: 0, label: "POST /url", caption: "Your request passes Keploy, which copies it as the start of a test case." },
-    { from: X.app2, to: X.db, tap: X.proxyOut, label: "update", caption: "The app queries the database. The query goes through Keploy's proxy." },
-    { from: X.db, to: X.app2, tap: X.proxyOut, drop: 1, label: "n: 1", caption: "The database answers. Keploy saves the query and the answer as a mock." },
+    { from: X.app2, to: X.db - 30, tap: X.proxyOut, label: "update", caption: "The app queries the database. The query goes through Keploy's proxy." },
+    { from: X.db - 30, to: X.app2, tap: X.proxyOut, drop: 1, label: "n: 1", caption: "The database answers. Keploy saves the query and the answer as a mock." },
     { from: X.app, to: X.client, tap: X.proxyIn, drop: 0, label: "200", caption: "The app responds. Keploy stores the response as the expected result." },
   ],
   replay: [
@@ -114,11 +114,11 @@ export function RecordReplaySim({ className }: { className?: string }) {
     <div
       ref={ref}
       className={cn(
-        "not-prose relative overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_24px_48px_-32px_rgba(16,20,28,0.35)]",
+        "@container not-prose relative overflow-hidden rounded-xl border border-rule bg-surface shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_24px_48px_-32px_rgba(16,20,28,0.35)] dark:shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_40px_-24px_rgba(8,10,14,0.55)]",
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-3 border-b border-rule px-3.5 py-2">
         <div role="group" aria-label="Keploy mode" className="relative inline-flex rounded-lg bg-muted p-0.5 text-[13px]">
           {(["record", "replay"] as Mode[]).map((m) => (
             <button
@@ -156,7 +156,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
           <button
             type="button"
             onClick={() => setPlaying((p) => !p)}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-graphite hover:text-ink"
+            className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-graphite hover:bg-muted hover:text-ink"
             aria-label={playing ? "Pause animation" : "Play animation"}
           >
             {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
@@ -215,10 +215,10 @@ export function RecordReplaySim({ className }: { className?: string }) {
         <rect x="8" y={Y - 30} width={X.client - 8} height="60" rx="11" fill="var(--paper)" stroke="var(--rule)" strokeWidth="1.25" />
         <AnimatePresence mode="wait" initial={false}>
           <motion.g key={mode} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.2 }}>
-            <text x={(8 + X.client) / 2} y={Y - 2} textAnchor="middle" className="fill-ink font-mono text-[13px] font-medium">
+            <text x={(8 + X.client) / 2} y={Y - 2} textAnchor="middle" className="fill-ink font-mono text-[13px] font-medium @max-md:text-[17px]">
               {isRec ? "curl" : "keploy"}
             </text>
-            <text x={(8 + X.client) / 2} y={Y + 16} textAnchor="middle" className="fill-graphite text-[12px]">
+            <text x={(8 + X.client) / 2} y={Y + 16} textAnchor="middle" className="fill-graphite text-[12px] @max-md:hidden">
               {isRec ? "you" : "test"}
             </text>
           </motion.g>
@@ -226,10 +226,10 @@ export function RecordReplaySim({ className }: { className?: string }) {
 
         {/* app */}
         <rect x={X.app} y={Y - 36} width={X.app2 - X.app} height="72" rx="12" fill="var(--paper)" stroke="var(--ink)" strokeOpacity="0.55" strokeWidth="1.25" />
-        <text x={(X.app + X.app2) / 2} y={Y - 4} textAnchor="middle" className="fill-ink text-[15px] font-semibold">
+        <text x={(X.app + X.app2) / 2} y={Y - 4} textAnchor="middle" className="fill-ink text-[15px] font-semibold @max-md:text-[18px]">
           {app}
         </text>
-        <text x={(X.app + X.app2) / 2} y={Y + 16} textAnchor="middle" className="fill-graphite text-[12px]">
+        <text x={(X.app + X.app2) / 2} y={Y + 16} textAnchor="middle" className="fill-graphite text-[12px] @max-md:hidden">
           Go app, port 8080
         </text>
 
@@ -237,7 +237,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
         <motion.g initial={false} animate={{ opacity: isRec ? 1 : 0.35 }} transition={{ duration: reduce ? 0 : 0.45 }}>
           <path d={`M${X.db} ${Y - 24} a46 10 0 0 1 92 0 v48 a46 10 0 0 1 -92 0 z`} fill="var(--paper)" stroke="var(--rule)" strokeWidth="1.25" />
           <ellipse cx={X.db + 46} cy={Y - 24} rx="46" ry="10" fill="var(--paper)" stroke="var(--rule)" strokeWidth="1.25" />
-          <text x={X.db + 46} y={Y + 12} textAnchor="middle" className="fill-ink text-[13.5px] font-semibold">
+          <text x={X.db + 46} y={Y + 12} textAnchor="middle" className="fill-ink text-[13.5px] font-semibold @max-md:text-[16px]">
             {db}
           </text>
         </motion.g>
@@ -264,7 +264,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
             <line x1={x} y1={Y + 15} x2={x} y2={TAPE_Y} stroke={color} strokeOpacity="0.4" strokeDasharray="2 4" strokeWidth="1.25" style={{ transition: "stroke 300ms" }} />
             <circle cx={x} cy={Y} r="15" fill="var(--surface)" stroke={color} strokeWidth="1.75" style={{ transition: "stroke 300ms" }} />
             <circle cx={x} cy={Y} r="4.5" fill={color} style={{ transition: "fill 300ms" }} />
-            <text x={x} y={Y - 26} textAnchor="middle" className="fill-orange-text text-[12.5px] font-semibold">
+            <text x={x} y={Y - 26} textAnchor="middle" className="fill-orange-text text-[12.5px] font-semibold @max-md:text-[15px]">
               Keploy
             </text>
           </g>
@@ -272,7 +272,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
 
         {/* tape */}
         <rect x="8" y={TAPE_Y} width="544" height="104" rx="12" fill="var(--tape)" stroke="var(--tape-rule)" />
-        <text x="24" y={TAPE_Y + 24} className="fill-tape-dim font-mono text-[12px]">
+        <text x="24" y={TAPE_Y + 24} className="fill-tape-dim font-mono text-[12px] @max-md:text-[15px]">
           keploy/test-set-0/
         </text>
         {TAPE.map(([file, what], i) => {
@@ -291,7 +291,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
                 animate={{ opacity: isReading ? 0.22 : 0 }}
                 transition={{ duration: 0.25 }}
               />
-              <text x="26" y={ROW_Y(i)} className="fill-tape-ink font-mono text-[12.5px]" opacity={visible ? 1 : 0.16}>
+              <text x="26" y={ROW_Y(i)} className="fill-tape-ink font-mono text-[12.5px] @max-md:text-[16px]" opacity={visible ? 1 : 0.16}>
                 {file}
               </text>
               {/* the description types in when Keploy writes the row */}
@@ -307,7 +307,7 @@ export function RecordReplaySim({ className }: { className?: string }) {
                   transition={{ duration: reduce || !visible ? 0 : 0.55, ease: "linear", delay: reduce ? 0 : 0.2 }}
                 />
               </clipPath>
-              <text x="210" y={ROW_Y(i)} clipPath={`url(#sim-clip-${i})`} className="fill-tape-dim font-mono text-[12.5px]">
+              <text x="210" y={ROW_Y(i)} clipPath={`url(#sim-clip-${i})`} className="fill-tape-dim font-mono text-[12.5px] @max-md:hidden">
                 {what}
               </text>
             </g>
@@ -368,10 +368,10 @@ export function RecordReplaySim({ className }: { className?: string }) {
               transition={{ delay: reduce ? 0 : HOP_S, type: "spring", stiffness: 420, damping: 18 }}
               style={{ transformOrigin: `${(8 + X.client) / 2}px 32px` }}
             >
-              <rect x={(8 + X.client) / 2 - 34} y="20" width="68" height="24" rx="12" fill="var(--replay)" />
-              <path d={`M${(8 + X.client) / 2 - 22} 32.5l3.4 3.2 6.4-6.8`} fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              <text x={(8 + X.client) / 2 + 8} y="36.5" textAnchor="middle" className="fill-white text-[12px] font-bold tracking-wide">
-                PASS
+              <rect x={(8 + X.client) / 2 - 39} y="20" width="78" height="24" rx="12" fill="var(--replay)" />
+              <path d={`M${(8 + X.client) / 2 - 28} 32.5l3.4 3.2 6.4-6.8`} fill="none" stroke="#0c0f14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              <text x={(8 + X.client) / 2 + 6} y="36.5" textAnchor="middle" className="fill-[#0c0f14] text-[12px] font-semibold">
+                Passed
               </text>
             </motion.g>
           )}

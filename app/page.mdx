@@ -26,8 +26,6 @@ While you **record**, every request and response becomes a test case, and every 
 
 On Linux, Keploy uses eBPF, a kernel feature that can reroute a program's network traffic, to pass your app's connections through its proxy, without changes to your code.
 
-Tested with:
-
 <TestedOn
   rows={[
     ["Keploy", "3.8.58, from keploy.io"],
@@ -51,10 +49,10 @@ Tested with:
 Keploy is a single command-line tool, `keploy`. Install it with the command for your system from Keploy's [installation guide](https://keploy.io/docs/server/installation/), then run `keploy` to check it.
 
 <Tabs defaultValue="linux" className="not-prose">
-  <TabsList>
-    <TabsTrigger value="linux">Linux</TabsTrigger>
-    <TabsTrigger value="windows">Windows</TabsTrigger>
-    <TabsTrigger value="mac">macOS</TabsTrigger>
+  <TabsList variant="line" className="h-auto! w-full justify-start gap-6 rounded-none border-b border-rule p-0">
+    <TabsTrigger value="linux" className="flex-none px-0 pb-2.5 text-[14.5px] data-active:text-ink after:bg-orange! after:bottom-[-1px]!">Linux</TabsTrigger>
+    <TabsTrigger value="windows" className="flex-none px-0 pb-2.5 text-[14.5px] data-active:text-ink after:bg-orange! after:bottom-[-1px]!">Windows</TabsTrigger>
+    <TabsTrigger value="mac" className="flex-none px-0 pb-2.5 text-[14.5px] data-active:text-ink after:bg-orange! after:bottom-[-1px]!">macOS</TabsTrigger>
   </TabsList>
   <TabsContent keepMounted value="linux" className="tab-body" tabIndex={-1}>
 

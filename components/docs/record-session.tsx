@@ -218,7 +218,7 @@ export function RecordSession({
               />
             }
             copyText={record.cmd}
-            height="min(26rem, 46dvh)"
+            height="min(32rem, 46dvh)"
             label="Terminal 1 output"
             anchorKey={anchor}
             className={cn("transition-shadow duration-700", outcomeRing(a.outcome))}
@@ -270,7 +270,7 @@ export function RecordSession({
               className={cn(
                 // Offset so Terminal 2's bottom always sticks out 4.5rem below
                 // Terminal 1 (heights match the two Terminal height props).
-                "relative col-start-1 row-start-1 mt-[calc(min(26rem,46dvh)_-_min(10rem,24dvh)_+_4.5rem)] w-[88%] self-start justify-self-end sm:w-[78%]",
+                "relative col-start-1 row-start-1 mt-[calc(min(32rem,46dvh)_-_min(10rem,24dvh)_+_5.5rem)] w-[88%] self-start justify-self-end sm:w-[78%]",
                 // Behind Terminal 1: hide the header's right side so no clipped bits show.
                 front !== "b" && "[&_[data-controls]]:opacity-0 [&_[data-controls]]:focus-within:opacity-100",
                 !showB && "pointer-events-none",

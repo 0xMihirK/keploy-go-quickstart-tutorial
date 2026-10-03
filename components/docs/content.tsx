@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 /* Callout -------------------------------------------------------------- */
 
 const CALLOUTS = {
-  info: { icon: Info, label: "Note", cls: "border-[#6ca8ff]/40 bg-[#6ca8ff]/[0.07]", ic: "text-[#3b6fd8] dark:text-[#8db8ff]" },
-  tip: { icon: Lightbulb, label: "Tip", cls: "border-replay/40 bg-replay/[0.07]", ic: "text-replay-text" },
+  info: { icon: Info, label: "Note", cls: "border-graphite/50", ic: "text-graphite" },
+  tip: { icon: Lightbulb, label: "Tip", cls: "border-orange", ic: "text-orange-text dark:text-orange" },
 } as const;
 
 export function Callout({
@@ -34,12 +34,12 @@ export function Callout({
     <div
       role="note"
       className={cn(
-        "not-prose my-6 flex gap-3 rounded-lg border px-4 py-3.5 text-[15.5px] leading-relaxed",
+        "not-prose my-6 flex gap-3 border-l-2 py-0.5 pl-4 text-[15.5px] leading-relaxed",
         c.cls,
       )}
     >
       <Icon className={cn("mt-1 size-4 shrink-0", c.ic)} aria-hidden="true" />
-      <div className="min-w-0 [&_a]:text-orange-text [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.86em] [&_p+p]:mt-2">
+      <div className="min-w-0 [&_a]:text-orange-text [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-[0.36em] [&_code]:py-[0.12em] [&_code]:font-mono [&_code]:text-[0.82em] [&_p+p]:mt-2">
         <p className={cn("font-semibold text-ink", !title && "sr-only")}>
           {title ?? c.label}
         </p>
@@ -147,13 +147,16 @@ export function CodeFigure({ children, ...props }: React.ComponentProps<"figure"
 
 export function TestedOn({ rows }: { rows: [string, string][] }) {
   return (
-    <dl className="not-prose my-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 rounded-lg border border-rule bg-surface px-4 py-3.5 text-[14.5px]">
-      {rows.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="text-graphite">{k}</dt>
-          <dd className="font-medium text-ink">{v}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="not-prose my-6">
+      <h3 className="text-[14px] font-medium text-graphite">Tested with</h3>
+      <dl className="mt-2 grid grid-cols-[8rem_minmax(0,1fr)] border-t border-rule text-[14.5px]">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="border-b border-rule py-2 text-graphite">{k}</dt>
+            <dd className="border-b border-rule py-2 text-ink">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }

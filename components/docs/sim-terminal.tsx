@@ -339,7 +339,7 @@ export function StatusBar({
         </>
       ) : running && !paused ? (
         <>
-          <span className="text-[#ffd77a]">
+          <span className="text-orange">
             <Spinner />
           </span>
           {wait ? (
@@ -355,8 +355,8 @@ export function StatusBar({
           <span className="rec-pulse size-1.5 rounded-full bg-record" />
           <span>{pausedText ?? "Waiting…"}</span>
         </>
-      ) : idleText ? (
-        <span>{idleText}</span>
+      ) : (idleText ?? (outcome === "pass" ? "Finished: all tests passed." : outcome === "fail" ? "Finished: a test failed." : null)) ? (
+        <span>{idleText ?? (outcome === "pass" ? "Finished: all tests passed." : "Finished: a test failed.")}</span>
       ) : null}
       {real ? (
         <span className="ml-auto hidden shrink-0 sm:inline">
@@ -522,7 +522,7 @@ export function SimTerminal({
   cwd = "~",
   title = "bash",
   mode,
-  maxHeight = "min(28rem, 54dvh)",
+  maxHeight = "var(--term-h)",
   className,
   onCommandDone,
   label = "Terminal",
