@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { YamlExplorer } from "./lazy";
 import type { ExplorerFile, Note } from "./yaml-explorer";
 
-/** Reads one of the files Keploy generated in my run (recordings/gin-mongo). */
+/** Reads one of the files Keploy generated in the recorded run (recordings/gin-mongo). */
 function read(rel: string) {
   return readFileSync(join(process.cwd(), "recordings", "gin-mongo", rel), "utf8");
 }

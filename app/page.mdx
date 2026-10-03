@@ -26,16 +26,16 @@ While you **record**, every request and response becomes a test case, and every 
 
 On Linux, Keploy uses eBPF, a kernel feature that can reroute a program's network traffic, to pass your app's connections through its proxy, without changes to your code.
 
-What I ran it on:
+Tested with:
 
 <TestedOn
   rows={[
     ["Keploy", "3.8.58, from keploy.io"],
-    ["Linux", "Ubuntu 22.04 in a privileged container (Docker Desktop on Windows 11, WSL2 kernel)"],
-    ["Go", "1.24.2"],
-    ["Docker", "29.7.2"],
-    ["Database", "MongoDB 9.0.2"],
-    ["Date", "October 2, 2026"],
+    ["Linux", "Ubuntu 22.04"],
+    ["Go", "1.24"],
+    ["Docker", "29.7"],
+    ["Database", "MongoDB 9.0"],
+    ["Last tested", "October 2, 2026"],
   ]}
 />
 
@@ -85,7 +85,7 @@ curl --silent -O -L \
   && source install.sh
 ```
 
-Run every command on this page in that Ubuntu terminal, including `curl`; in PowerShell, `curl` is a different command. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel rather than in a WSL distro.
+Run every command on this page in that Ubuntu terminal, including `curl`; in PowerShell, `curl` is a different command.
 
   </TabsContent>
   <TabsContent keepMounted value="mac" className="tab-body" tabIndex={-1}>
@@ -98,7 +98,7 @@ curl --silent -O -L \
   && source install.sh
 ```
 
-I haven't run this on a Mac. Keploy's docs say to record a built binary there, so step 4 becomes:
+On macOS, Keploy records a built binary, so step 4 becomes:
 
 ```bash title="macOS, step 4"
 go build
@@ -177,7 +177,7 @@ sed -i 's/mongoDb:27017/localhost:27017/' \
   main.go
 ```
 
-- `go mod download` fetches the dependencies now. Without it, the first `go run` spent over two minutes downloading before the app started.
+- `go mod download` fetches the dependencies now. Without it, the first `go run` can spend minutes downloading them before the app starts.
 - `rm -rf keploy` removes the sample's example recordings, so every test you replay is your own.
 - The sample's compose file expects a Docker network named `keploy-network` and won't create it. `docker network create` makes it; if it already exists, `2>/dev/null || true` hides the error.
 - `-d` keeps MongoDB running in the background so you can reuse the terminal. Compose also prints a warning that the `version` attribute is obsolete; it's harmless. If `docker` says `permission denied` on native Linux, run `sudo usermod -aG docker $USER` and open a new shell.
@@ -216,7 +216,7 @@ a running `mongoDB` container in `docker ps`.
 keploy record -c "go run main.go handler.go"
 ```
 
-When you record as a normal user, Keploy asks for your sudo password (`[sudo] password for dev:` in my run), because its agent needs root to attach eBPF hooks to your app's network traffic. Wait for `Started ingress forwarding`, which means Keploy is listening on port 8080. Then, in the second terminal:
+When you record as a normal user, Keploy asks for your sudo password, because its agent needs root to attach eBPF hooks to your app's network traffic. Wait for `Started ingress forwarding`, which means Keploy is listening on port 8080. Then, in the second terminal:
 
 ```bash
 curl --request POST \
@@ -227,7 +227,7 @@ curl --request POST \
 curl -i http://localhost:8080/7fvpSsFg
 ```
 
-The first request creates a short link and the second follows it. The code is a hash of the URL, so you'll get the same `7fvpSsFg` I did. `-i` prints the response headers, so you see the `303` status and the `Location` header pointing at keploy.io.
+The first request creates a short link and the second follows it. The code is a hash of the URL, so you get the same `7fvpSsFg` shown here. `-i` prints the response headers, so you see the `303` status and the `Location` header pointing at keploy.io.
 
 Stop with **Ctrl+C** in the first terminal.
 
@@ -265,7 +265,7 @@ two `Keploy has captured test cases` lines, then `Total test passed: 2`.
 <Slide id="inspect">
 <Lesson>
 
-Recording left a `keploy/` folder next to your code. Click through the files; they're the real ones from my run, and underlined lines have notes.
+Recording left a `keploy/` folder next to your code. Click through the files; they're the files Keploy generates for these two requests, and underlined lines have notes.
 
 - **Keploy added noise rules by itself.** The response's `ts` timestamp and the `Date` header change on every run, so Keploy ignores them when comparing. <GoTo id="noise">See what happens without them</GoTo>.
 - **The mocks don't go in git.** The generated `keploy/.gitignore` excludes `mocks.yaml`. The auto-replay that ran after Ctrl+C uploaded the mocks to your account, and `config.yaml` holds the hash CI uses to fetch them.
@@ -363,7 +363,7 @@ Keploy prints a table for each failure: recorded `303`, now `301`. Browsers cach
 
 Some values differ on every run however correct your code is: timestamps, generated IDs, the `Date` header. Keploy calls them **noise** and skips them when it compares responses.
 
-The switch replays my run with the `body.ts` rule deleted from `post-url-1.yaml`. Without the rule the test fails on `ts` alone, even though the short URL still matches.
+The switch replays the test with and without the `body.ts` rule in `post-url-1.yaml`. Without the rule the test fails on `ts` alone, even though the short URL still matches.
 
 To try it yourself (optional), back up the test, delete the rule, replay, and restore the file:
 
@@ -388,7 +388,7 @@ test:
                 ts: []
 ```
 
-An empty list means "ignore this field, whatever its value". In my run with the rule removed from the test file and added to `keploy.yml`, both tests passed.
+An empty list means "ignore this field, whatever its value". With the rule in `keploy.yml` instead of the test file, both tests still pass.
 
 </Lesson>
 <Lab>
@@ -411,6 +411,6 @@ An empty list means "ignore this field, whatever its value". In my run with the 
 - **Try your own service.** Point `keploy record -c` at the command that starts your app. Don't record production data, since tests and mocks store request and response bodies as they are; `keploy sanitize` removes sensitive data from test cases.
 - **Explore other stacks.** Keploy's [quickstarts](https://keploy.io/docs/quickstart/quickstart-filter/) cover Python, Java, JavaScript and C#, and the [Go samples](https://github.com/keploy/samples-go) include gRPC, MySQL and Redis apps.
 
-Written by Mihir Katoch. The raw terminal captures and generated files behind every terminal on this page are in the [recordings folder](https://github.com/0xMihirK/keploy-go-quickstart-tutorial/tree/main/recordings) of the site's repository.
+Every terminal on this page replays a recorded run of these exact commands. The captures and generated files are in the [recordings folder](https://github.com/0xMihirK/keploy-go-quickstart-tutorial/tree/main/recordings) of the site's repository. Written by Mihir Katoch.
 
 </Slide>

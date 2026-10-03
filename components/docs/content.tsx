@@ -6,7 +6,6 @@ import {
   Copy,
   Info,
   Lightbulb,
-  ShieldAlert,
 } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,7 +17,6 @@ import { cn } from "@/lib/utils";
 const CALLOUTS = {
   info: { icon: Info, label: "Note", cls: "border-[#6ca8ff]/40 bg-[#6ca8ff]/[0.07]", ic: "text-[#3b6fd8] dark:text-[#8db8ff]" },
   tip: { icon: Lightbulb, label: "Tip", cls: "border-replay/40 bg-replay/[0.07]", ic: "text-replay-text" },
-  hit: { icon: ShieldAlert, label: "I hit this", cls: "border-record/40 bg-record/[0.06]", ic: "text-record-text" },
 } as const;
 
 export function Callout({

@@ -360,7 +360,7 @@ export function StatusBar({
       ) : null}
       {real ? (
         <span className="ml-auto hidden shrink-0 sm:inline">
-          real run: {real.toFixed(1)} s
+          actual time: {real.toFixed(1)} s
         </span>
       ) : null}
     </div>
