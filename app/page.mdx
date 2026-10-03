@@ -1,40 +1,35 @@
-import { LoopTerminal, Needs, StartButton } from "@/components/docs/hero";
+import { StartButton, TestingTypes } from "@/components/docs/hero";
 import { RecordReplaySim } from "@/components/docs/record-replay-sim";
 import { Slide, Lesson, Lab, GoTo } from "@/components/docs/slides";
 import { SimTerminal, RecordSession, NoiseLab } from "@/components/docs/lazy";
 import { KeployFiles } from "@/components/docs/keploy-files";
-import { Callout, Checkpoint, Quiz, TestedOn } from "@/components/docs/content";
+import { Callout, Checkpoint, TestedOn } from "@/components/docs/content";
 import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
 } from "@/components/docs/ui";
 
-<Slide id="overview">
-<Lesson>
+<Slide id="overview" layout="single">
 
-Keploy watches the requests your Go app handles and the database calls it makes, and saves both as YAML. Replay those files later and your app gets the same answers, even with the database switched off.
+Keploy turns real API traffic into tests. It records the requests your app handles and the database and API calls it makes, then replays them as tests with those dependencies mocked, with no changes to your code. Its core record-and-replay engine is open source under Apache 2.0.
 
-It takes about 15 minutes. Most steps have a terminal that plays back my real run on a loop, so you can watch each command and its output before you run it on your machine.
+<TestingTypes />
 
-<StartButton />
+<div className="not-prose flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+  <StartButton />
+  <div className="max-w-xl text-[14px] leading-snug text-graphite">
+    This tutorial covers the first card with a Go app (Gin and MongoDB), in about 15 minutes. You'll need Linux or WSL2, Go 1.22+, Docker and a free Keploy account. Keploy has quickstarts for Python, Java, JavaScript and C# apps too; see the <a className="text-orange-text underline underline-offset-2 dark:text-orange" href="https://keploy.io/docs/quickstart/quickstart-filter/">quickstarts</a>.
+  </div>
+</div>
 
-</Lesson>
-<Lab>
-<RecordReplaySim />
-<Needs />
-</Lab>
 </Slide>
 
 <Slide id="how-it-works">
 <Lesson>
 
-API tests for a Go service usually need fakes: an interface for the database, a mock that implements it, fixtures for each case. Keploy skips that. It runs your app unchanged and sits on the network between the app and everything it talks to.
+Writing API tests by hand means writing fakes: an interface for the database, a mock that implements it, fixtures for each case. Keploy records them for you. It runs your app unchanged and sits on the network between the app and everything it talks to.
 
 While you **record**, every request and response becomes a test case, and every database call and its answer becomes a mock. When you **test**, Keploy starts the app, sends the recorded requests, and answers the database calls from the mocks.
 
@@ -55,24 +50,14 @@ What I ran it on:
 
 </Lesson>
 <Lab>
-<LoopTerminal />
-<Quiz
-  question="During keploy test, who answers your app's database queries?"
-  options={[
-    "The real database, so it has to be running",
-    "Keploy, from the mocks it saved while recording",
-    "A copy of the database that Keploy starts in Docker",
-  ]}
-  answer={1}
-  explain="Keploy's proxy matches each query against the recorded mocks and sends back the saved answer. In step 6 you stop the database to prove it."
-/>
+<RecordReplaySim />
 </Lab>
 </Slide>
 
 <Slide id="install">
 <Lesson>
 
-Install the keploy.io build with the command below, not the open-source build from Keploy's GitHub releases, which mocks only HTTP and MySQL.
+Install Keploy with the official installer from keploy.io. It sets up everything this tutorial needs, including MongoDB recording.
 
 The installer downloads `keploy` and puts it on your `PATH`. Pick your system:
 
@@ -95,7 +80,7 @@ It uses `sudo` to move `keploy` into `/usr/local/bin`, so it may ask for your pa
   </TabsContent>
   <TabsContent keepMounted value="windows" className="tab-body" tabIndex={-1}>
 
-Keploy lists a native Windows build, but Microsoft Defender blocked and quarantined it on my machine, so use WSL2. In PowerShell:
+Use WSL2 with Ubuntu, so every command matches the Linux steps. (Keploy also ships a native Windows build.) In PowerShell:
 
 ```powershell
 wsl --install -d Ubuntu
@@ -109,12 +94,12 @@ curl --silent -O -L \
   && source install.sh
 ```
 
-Run every command on this page in that Ubuntu terminal. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel, not in a WSL distro, so I haven't tested these WSL steps.
+Run every command on this page in that Ubuntu terminal, including `curl`; in PowerShell, `curl` is a different command. I ran Ubuntu 22.04 in a container on Docker Desktop's WSL2 kernel rather than in a WSL distro.
 
   </TabsContent>
   <TabsContent keepMounted value="mac" className="tab-body" tabIndex={-1}>
 
-The same installer supports Apple silicon and refuses Intel Macs:
+The same installer works on Apple silicon Macs (the macOS build is arm64 only):
 
 ```bash title="macOS (Apple silicon)"
 curl --silent -O -L \
@@ -153,13 +138,19 @@ the Keploy banner and `Keploy: 3.8.58` or newer.
 <Slide id="sign-in">
 <Lesson>
 
-The keploy.io build needs a free account. Create one at [app.keploy.io](https://app.keploy.io) and stay signed in there, then run:
+Keploy connects to a free Keploy account. After you record, Keploy uploads the mocks to it, and a CI job can later fetch them with an API key from the same account.
 
-```bash
-keploy login
-```
+1. Create an account at [app.keploy.io](https://app.keploy.io) and stay signed in there.
+2. Run the login command:
 
-It prints a link and waits. Open it in the browser where you're signed in, approve the sign-in within a minute, and the terminal picks it up.
+   ```bash
+   keploy login
+   ```
+
+3. Keploy opens a sign-in page in your browser. If it can't, as in a WSL terminal, it prints the link instead; open it in the browser where you're signed in.
+4. Approve the sign-in. The link works for about a minute, so do it right away.
+
+The terminal then prints `Logged in successfully!` and your plan, `You are on the Keploy Free plan.` The `mcp-install` lines after that are optional; they connect Keploy to AI coding editors. On a machine with no browser at all, `keploy login --manual-login` gives you a manual login prompt instead of opening one.
 
 <Checkpoint id="sign-in">
 
@@ -196,10 +187,10 @@ sed -i 's/mongoDb:27017/localhost:27017/' \
 ```
 
 - `go mod download` fetches the dependencies now. Without it, the first `go run` spent over two minutes downloading before the app started.
-- `rm -rf keploy` removes recordings that ship with the sample, made by an older Keploy, so every test you replay is your own.
+- `rm -rf keploy` removes the sample's example recordings, so every test you replay is your own.
 - The sample's compose file expects a Docker network named `keploy-network` and won't create it. `docker network create` makes it; if it already exists, `2>/dev/null || true` hides the error.
 - `-d` keeps MongoDB running in the background so you can reuse the terminal. Compose also prints a warning that the `version` attribute is obsolete; it's harmless. If `docker` says `permission denied` on native Linux, run `sudo usermod -aG docker $USER` and open a new shell.
-- The docs say to change MongoDB's address on line 21 of `main.go`; in the current sample it's line 35. `mongoDb:27017` only resolves inside Docker, so `sed` points it at `localhost`.
+- `mongoDb:27017` (line 35 of `main.go`) only resolves inside Docker. The app runs on your machine, so `sed` points it at `localhost`. This edit is only for running the sample outside Docker; Keploy itself needs no code changes.
 
 <Checkpoint id="clone">
 
@@ -212,7 +203,8 @@ a running `mongoDB` container in `docker ps`.
 <SimTerminal
   cwd="~"
   commands={[
-    { cmd: "git clone https://github.com/keploy/samples-go.git && cd samples-go/gin-mongo", run: "03-clone", cwd: "~" },
+    { cmd: "git clone https://github.com/keploy/samples-go.git", run: "03-clone", cwd: "~" },
+    { cmd: "cd samples-go/gin-mongo", out: [], cwd: "~" },
     { cmd: "go mod download", out: [], cwd: "~/samples-go/gin-mongo" },
     { cmd: "rm -rf keploy", out: [], cwd: "~/samples-go/gin-mongo" },
     { cmd: "docker network create keploy-network 2>/dev/null || true", out: [], cwd: "~/samples-go/gin-mongo" },
@@ -227,7 +219,7 @@ a running `mongoDB` container in `docker ps`.
 <Slide id="record">
 <Lesson>
 
-`keploy record -c` starts your app with the command you give it and records everything that crosses the network. Open two terminals. In the first:
+`keploy record -c` starts your app with the command you give it and records everything that crosses the network. Open a second terminal for later. In the first one, still in `samples-go/gin-mongo`:
 
 ```bash
 keploy record -c "go run main.go handler.go"
@@ -254,6 +246,11 @@ Keploy then replays the new tests to check for noise, writes `mappings.yaml`, an
 
 </Callout>
 
+<Callout type="info" title="If a request doesn't go through">
+
+`curl: (7) Failed to connect` means Keploy isn't listening yet: wait for `Started ingress forwarding` and send it again. If Keploy reports `address already in use`, something else holds port 8080; `docker ps --filter publish=8080` shows a container using it.
+
+</Callout>
 
 <Checkpoint id="record">
 
@@ -297,7 +294,7 @@ Recording left a `keploy/` folder next to your code. Click through the files; th
 <Slide id="replay">
 <Lesson>
 
-Keploy's docs stop at running the tests. I stopped MongoDB first, to see whether the mocks stand in for it:
+Stop MongoDB first, so the only thing that can answer the app's queries is Keploy's mocks:
 
 ```bash
 docker compose stop mongo
@@ -414,88 +411,14 @@ An empty list means "ignore this field, whatever its value". In my run with the 
 </Lab>
 </Slide>
 
-<Slide id="problems" layout="single">
-
-Most of these happened during my run; the last three are log lines you can ignore. Open the one that matches what you're seeing.
-
-<Accordion className="not-prose mt-6 rounded-xl border border-rule bg-surface px-5">
-  <AccordionItem value="defender">
-    <AccordionTrigger className="py-4 text-[16px]">Microsoft Defender quarantined keploy.exe</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      Running it then fails with `Operation did not complete successfully because the file contains a virus or potentially unwanted software`. Use WSL2 with Ubuntu, as in step 1.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="oss">
-    <AccordionTrigger className="py-4 text-[16px]">Tests record, but MongoDB calls aren't mocked</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      Run `keploy` and check the banner. If it says `OPEN SOURCE`, you have the open-source build, which mocks only HTTP and MySQL. Install the keploy.io build with the installer from step 1.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="login">
-    <AccordionTrigger className="py-4 text-[16px]">keploy login times out</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      The sign-in link is valid for one minute. Create an account and sign in at app.keploy.io first, then run `keploy login` again. `keploy login --manual-login` takes an API key instead. I couldn't create one. In a team workspace where I only had the user role, app.keploy.io refused a read-scope key with `you do not hold the "read" scope`.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="port">
-    <AccordionTrigger className="py-4 text-[16px]">Ingress hook failed to start: address already in use</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      I got `listen tcp4 0.0.0.0:8080: bind: address already in use` because another container still held port 8080. Keploy needs your app's port free. Look for a container first with `docker ps --filter publish=8080`, then for any other process with `sudo ss -ltnp | grep 8080`.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="refused">
-    <AccordionTrigger className="py-4 text-[16px]">curl: (7) Failed to connect ... Connection refused</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      The request went out before Keploy was ready. Wait for `Started ingress forwarding` in the first terminal, then send it again.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="powershell">
-    <AccordionTrigger className="py-4 text-[16px]">A positional parameter cannot be found that accepts argument 'POST'</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      In Windows PowerShell 5.1, `curl` means `Invoke-WebRequest`, which doesn't understand curl's flags. Send the requests from your WSL2 terminal, or call `curl.exe`.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="network">
-    <AccordionTrigger className="py-4 text-[16px]">Compose says keploy-network is not found</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      The sample's compose file declares `keploy-network` as an external network, so Compose won't create it. Run `docker network create keploy-network`, then `docker compose up -d mongo` again.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="cgroup">
-    <AccordionTrigger className="py-4 text-[16px]">WARN agent pod cgroup slice unresolved</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      Keploy's agent printed this in every record and test run I did. It refers to CPU, RAM and disk metering for Kubernetes pods (it asks for `KEPLOY_POD_UID`), so it's harmless outside Kubernetes.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="next-block">
-    <AccordionTrigger className="py-4 text-[16px]">What's the KEPLOY NEXT block at the end of a run?</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      After each run, Keploy 3.8 prints a block that starts with `=== KEPLOY NEXT ===`. It's written for AI coding agents that drive Keploy; you can ignore it. The terminals on this page leave it out.
-    </AccordionContent>
-  </AccordionItem>
-  <AccordionItem value="dns">
-    <AccordionTrigger className="py-4 text-[16px]">"Keploy has taken control of the DNS resolution mechanism"</AccordionTrigger>
-    <AccordionContent keepMounted hiddenUntilFound className="text-[15.5px] leading-relaxed text-ink/85">
-      This is an INFO line. Keploy runs its own DNS server while it records, so hostname lookups your app makes are captured and replayed like any other call.
-    </AccordionContent>
-  </AccordionItem>
-</Accordion>
-
-</Slide>
-
 <Slide id="next" layout="single">
 
-- **Run it in CI.** I didn't run this in CI, because my workspace couldn't create an API key. [Keploy's CI guide](https://keploy.io/docs/ci-cd/github/) says to commit `keploy/` (the generated `.gitignore` leaves out mocks and reports), store an API key as `KEPLOY_API_KEY`, install Keploy, and run the same `keploy test` command. CI fetches the mocks by the hash in `config.yaml`, so they must come from a green local run that uploaded them. `keploy test` exits non-zero when a test fails, which fails the job.
+- **Run the tests in CI.** Commit the `keploy/` folder, add an API key from app.keploy.io as the `KEPLOY_API_KEY` secret, install Keploy in the job and run the same `keploy test` command. CI fetches the mocks by the hash in `config.yaml`, so record and replay once locally first. See the [GitHub Actions](https://keploy.io/docs/ci-cd/github/) and [GitLab](https://keploy.io/docs/ci-cd/gitlab/) guides.
 - **Record more cases.** Start MongoDB again with `docker compose start mongo`, run `keploy record` and send other requests, such as an unknown short code that returns 404. Each run adds a test set.
-- **Try your own service.** Nothing here is specific to the sample. Point `keploy record -c` at the command that starts your app. Don't record production data, since tests and mocks store request and response bodies as they are. The CLI help lists `keploy sanitize` for removing sensitive data from test cases; I haven't tried it.
-- **Read the reference.** [Keploy's docs](https://keploy.io/docs/) cover configuration and other languages, and the [Go samples](https://github.com/keploy/samples-go) include gRPC, MySQL and Redis apps.
-
-**Feedback I'd send Keploy**
-
-- The quickstart says to edit line 21 of `main.go`; the MongoDB address is on line 35.
-- The samples ship `keploy/` test sets made by an older Keploy.
-- The `keploy login` link expires after one minute, with no hint to sign up first.
-- Microsoft Defender blocks the native Windows build.
+- **Mock the tests you already have.** `keploy mock record -c "go test ./..."` saves the database and HTTP calls your existing suite makes, and `keploy mock replay -c "go test ./..."` runs the suite again with those calls answered from the mocks. It works the same with pytest or jest. See [Mock your tests](https://keploy.io/docs/running-keploy/mock-your-tests/).
+- **Generate unit tests.** Keploy's [PR agent](https://keploy.io/docs/running-keploy/utg-pr-agent/) writes unit tests on your pull requests and keeps only the ones that build, pass and raise coverage. It supports Go today, and JavaScript support is on the way.
+- **Try your own service.** Point `keploy record -c` at the command that starts your app. Don't record production data, since tests and mocks store request and response bodies as they are; `keploy sanitize` removes sensitive data from test cases.
+- **Explore other stacks.** Keploy's [quickstarts](https://keploy.io/docs/quickstart/quickstart-filter/) cover Python, Java, JavaScript and C#, and the [Go samples](https://github.com/keploy/samples-go) include gRPC, MySQL and Redis apps.
 
 Written by Mihir Katoch. The raw terminal captures and generated files behind every terminal on this page are in the [recordings folder](https://github.com/0xMihirK/keploy-go-quickstart-tutorial/tree/main/recordings) of the site's repository.
 

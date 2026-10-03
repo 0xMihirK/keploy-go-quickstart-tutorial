@@ -28,11 +28,11 @@ const SITE =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
-  title: "Keploy tutorial",
+  title: "Keploy Tutorial",
   description:
     "A hands-on tutorial: record tests and database mocks from a Go app's real traffic with Keploy, then replay them with the database switched off. Uses Keploy's Gin + MongoDB sample.",
   openGraph: {
-    title: "Keploy tutorial: test a Go API by recording it",
+    title: "Keploy Tutorial: test a Go API by recording it",
     description:
       "Run a Go app, send it two requests, and get tests plus database mocks you can replay with the database off.",
     type: "article",

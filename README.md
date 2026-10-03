@@ -1,4 +1,4 @@
-# Test a Go API by recording it
+# Keploy Tutorial: test a Go API by recording it
 
 This is an interactive Keploy tutorial for Go developers who have never used Keploy. You record real traffic to a sample app, replay it with the database switched off, then break the app on purpose and watch a test catch it.
 
@@ -8,7 +8,7 @@ It follows the **Running App Locally** path of Keploy's [Gin + MongoDB quickstar
 
 ## What's on the page
 
-The tutorial is one MDX page, [`app/page.mdx`](app/page.mdx), split into slides: an overview, how Keploy works, seven steps, and three reference pages. Move between them with the arrow keys, the buttons at the bottom, or the step list.
+The tutorial is one MDX page, [`app/page.mdx`](app/page.mdx), split into slides: what Keploy is and what it tests, how it works, seven steps, and two closing pages. Move between them with the arrow keys, the buttons at the bottom, or the step list.
 
 Each step pairs a short explanation and its commands with something to watch or do:
 
@@ -22,7 +22,7 @@ Each step pairs a short explanation and its commands with something to watch or 
 
 I ran the quickstart with Keploy 3.8.58 on October 2, 2026, on Ubuntu 22.04 in a container (Docker Desktop on Windows 11, WSL2 kernel). Every command and output on the page comes from that run, or from re-running the same commands afterwards; [`recordings/NOTES.md`](recordings/NOTES.md) lists which.
 
-- [`recordings/NOTES.md`](recordings/NOTES.md) lists every command I ran, the results, where I differed from the docs, and the problems I hit.
+- [`recordings/NOTES.md`](recordings/NOTES.md) lists every command I ran and its result, with notes on each step.
 - [`recordings/terminal/`](recordings/terminal) holds the raw terminal sessions, captured with `script --log-timing`. The `.ansi` file is the output and the `.tm` file is its timing.
 - [`recordings/gin-mongo/`](recordings/gin-mongo) holds the files Keploy generated: the test cases, the mocks, `config.yaml` and `keploy.yml`.
 - [`scripts/import-captures.mjs`](scripts/import-captures.mjs) turns each session into `public/runs/*.json`, which the terminals on the page replay.
@@ -68,8 +68,8 @@ scripts/                capture converter
 ## Why I built it this way
 
 - **Slides instead of one long scroll.** Each step keeps its terminal beside the explanation; long lessons scroll in their own column.
-- **Recorded runs, not a fake shell.** A shell in the browser would need a backend, and it still couldn't run Keploy's eBPF hooks. Replaying captured sessions keeps the output honest and the site static.
-- **Linux first.** Microsoft Defender quarantined the native Windows build on my machine, so the tutorial sends Windows readers to WSL2 and explains why.
+- **Replayed real runs.** A shell in the browser would need a backend and couldn't run Keploy's eBPF hooks. Replaying captured sessions keeps the output real and the site static.
+- **Linux first.** Keploy uses eBPF on Linux, so the steps target Linux and WSL2, and Windows readers get the same commands inside Ubuntu.
 - **The terminal draws Keploy's banner itself.** Browsers render block characters such as `▓` with dithered font glyphs. The site draws them as cell-sized shapes, the way terminal apps do.
 
 MIT licensed. Written by Mihir Katoch for the Keploy DevRel assignment. The sample app is from [keploy/samples-go](https://github.com/keploy/samples-go) (Apache 2.0).

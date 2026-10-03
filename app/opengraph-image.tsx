@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Test a Go API by recording it: a hands-on Keploy tutorial";
+export const alt = "Keploy Tutorial: test a Go API by recording it";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -67,7 +67,7 @@ export default async function Image() {
           {reel("#ff5c61")}
           {reel("#2ec4bc")}
           <div style={{ marginLeft: 18, fontSize: 30, color: "#8b93a1" }}>
-            Keploy tutorial
+            Keploy Tutorial
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>

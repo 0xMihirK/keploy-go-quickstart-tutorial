@@ -60,6 +60,9 @@ const RUN_HOLDS: Record<string, RegExp> = {
 };
 const HOLD_MS = 2500;
 
+/** Playback speed per captured run (1 = real pacing, capped as recorded). */
+const RUN_SPEED: Record<string, number> = { "01-install": 1.5 };
+
 interface WaitState {
   secs: number;
   ms: number;
@@ -88,6 +91,8 @@ export function useShell() {
   const pos = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const heldRef = useRef(false);
+  // Playback speed of the run being streamed.
+  const speedRef = useRef(1);
   // A command is loading or streaming (pause only applies then).
   const active = useRef(false);
 
@@ -130,9 +135,10 @@ export function useShell() {
       try {
         await streamLines(all, pos.current, end, {
           onLine,
-          onWait: (secs, ms) => setWait(secs ? { secs, ms } : null),
+          onWait: (secs, ms) => setWait(secs ? { secs, ms: ms / speedRef.current } : null),
           signal: ctrl.signal,
           instant: !!reduce,
+          speed: speedRef.current,
           isPaused: () => heldRef.current,
           holdAfter: (i) => (i === holdIdx ? HOLD_MS : 0),
         });
@@ -187,6 +193,7 @@ export function useShell() {
         }));
         setReal(null);
       }
+      speedRef.current = (c.run && RUN_SPEED[c.run]) || 1;
       pos.current = 0;
       setProgress(0);
       setOutcome(null);
@@ -368,7 +375,7 @@ export function StatusBar({
 export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   if (entry.kind === "cmd") {
     return (
-      <AnimatedSpan className="break-all text-tape-ink">
+      <AnimatedSpan className="text-tape-ink [overflow-wrap:anywhere]">
         <span>
           <Prompt cwd={entry.cwd ?? "~"} />
           {entry.text}
@@ -384,9 +391,30 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
     );
   }
   if (isBlockArt(entry.text)) return <BlockArt text={entry.text} />;
+  const plain = stripAnsi(entry.text);
+  // The installer's left-gutter box ("│" plus ~30 spaces of indent, wrapped
+  // for a much wider terminal). Same words, a quarter of the indent, and it
+  // wraps under its own indent instead of running off the window.
+  if (plain === entry.text && /^[╭╰]─+[╮╯]$/.test(plain)) {
+    return <div className="max-w-full overflow-hidden whitespace-pre text-tape-dim">{plain}</div>;
+  }
+  const gutter = plain === entry.text && /^│( +\S|\s*$)/.test(plain) && !plain.slice(1).includes("│");
+  if (gutter) {
+    const indent = plain.length - 1 - plain.slice(1).trimStart().length;
+    return (
+      <div className="flex">
+        <span className="text-tape-dim">│</span>
+        <span
+          className="min-w-0 whitespace-pre-wrap break-words"
+          style={{ paddingLeft: `${Math.ceil(indent / 4)}ch` }}
+        >
+          {plain.slice(1).trimStart()}
+        </span>
+      </div>
+    );
+  }
   // Box-drawing tables (Keploy's diff view) must not wrap; logs should.
   const table = /[│┌├└╭╰]/.test(entry.text);
-  const plain = stripAnsi(entry.text);
   const isFail = /^Testrun failed/.test(plain);
   const isSummary = /TESTRUN SUMMARY/.test(plain);
   const captured = /captured test cases/.test(entry.text);
@@ -442,7 +470,7 @@ export function PromptLine({
     );
   }
   return (
-    <div aria-hidden="true" className="whitespace-pre-wrap break-all">
+    <div aria-hidden="true" className="whitespace-pre-wrap [overflow-wrap:anywhere]">
       {!busy && <Prompt cwd={cwd} />}
       <span className="caret inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink" />
     </div>

@@ -233,7 +233,7 @@ export const TypingAnimation = ({
     <MotionComponent
       ref={elementRef}
       className={cn(
-        "whitespace-pre-wrap break-all",
+        "whitespace-pre-wrap [overflow-wrap:anywhere]",
         hasSequence && !started && !reduce && "hidden",
         className,
       )}
@@ -443,8 +443,16 @@ export const Terminal = ({
       el.removeEventListener("keydown", onKey);
     };
   }, []);
+  // A restarted loop clears the output: start again from the top, pinned.
+  const lastKey = useRef(scrollKey);
   useEffect(() => {
     const el = bodyRef.current;
+    const prev = lastKey.current;
+    lastKey.current = scrollKey;
+    if (el && typeof prev === "number" && typeof scrollKey === "number" && scrollKey < prev) {
+      pinned.current = true;
+      el.scrollTop = 0;
+    }
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [activeIndex, scrollKey]);
 
@@ -515,6 +523,8 @@ export const Terminal = ({
         onScroll={(e) => {
           const el = e.currentTarget;
           if (el.scrollHeight - el.scrollTop - el.clientHeight < 8) pinned.current = true;
+          // Soft top edge while scrolled, so a half-visible line reads as scrollback.
+          el.toggleAttribute("data-scrolled", el.scrollTop > 2);
         }}
       >
         <div ref={innerRef}>

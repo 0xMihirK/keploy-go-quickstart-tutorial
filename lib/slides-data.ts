@@ -12,7 +12,7 @@ export interface SlideMeta {
 
 /** Order of the tutorial. Ids double as URL hashes and checkpoint ids. */
 export const SLIDES: SlideMeta[] = [
-  { id: "overview", title: "Test a Go API by recording it", nav: "Overview", group: "start" },
+  { id: "overview", title: "What is Keploy?", nav: "Overview", group: "start" },
   { id: "how-it-works", title: "How Keploy works", group: "start" },
   { id: "install", title: "Install Keploy", group: "steps" },
   { id: "sign-in", title: "Sign in", group: "steps" },
@@ -22,7 +22,6 @@ export const SLIDES: SlideMeta[] = [
   { id: "replay", title: "Replay with the database off", group: "steps" },
   { id: "break", title: "Break it on purpose", group: "steps" },
   { id: "noise", title: "Fields that change on every run", nav: "Noise", group: "after" },
-  { id: "problems", title: "Problems I hit", group: "after" },
   { id: "next", title: "Where to go next", group: "after" },
 ];
 

@@ -102,14 +102,14 @@ export function Header() {
   return (
     <header data-site-header className="z-40 shrink-0 bg-paper">
       {/* The page's one h1; slide titles below it are h2s. */}
-      <h1 className="sr-only">Keploy tutorial: test a Go API by recording it</h1>
+      <h1 className="sr-only">Keploy Tutorial: test a Go API by recording it</h1>
       {/* Three columns: the stepper sits at the true centre whatever the sides hold. */}
       <div className="mx-auto grid h-14 max-w-[84rem] grid-cols-[1fr_auto] items-center gap-3 px-4 sm:px-8 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <SlideMenu />
           <span className="flex items-center gap-2 font-semibold tracking-[-0.01em] text-ink">
             <Mark />
-            <span className="hidden lg:inline">Keploy tutorial</span>
+            <span className="hidden min-[360px]:inline">Keploy Tutorial</span>
           </span>
         </div>
         <div className="hidden md:block">

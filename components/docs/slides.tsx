@@ -140,13 +140,13 @@ export function Slide({
         >
           {layout === "split" ? (
             // Stacked (small or short windows): one centred, readable column.
-            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-rows-[minmax(0,1fr)] tall:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
+            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-rows-[minmax(0,1fr)] tall:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
               {children}
             </div>
           ) : (
             // No region label here: the section is already labelled by its title.
             <ScrollColumn className="tall:h-full">
-              <div className="prose mx-auto w-full max-w-3xl py-8 tall:pt-12 tall:pb-12 tall-short:pt-6">
+              <div className={cn("prose mx-auto w-full py-8 tall:pt-12 tall:pb-12 tall-short:pt-6", id === "overview" ? "max-w-5xl" : "max-w-3xl")}>
                 <SlideHeading id={id} />
                 {/* The last slide opens with a short recap before its links. */}
                 {id === "next" && <Recap />}
@@ -308,7 +308,6 @@ export function DeckController() {
     const alias: Record<string, string> = {
       top: "overview",
       "fields-that-change-on-every-run": "noise",
-      "problems-i-hit": "problems",
       "where-to-go-next": "next",
     };
     const sync = () => {
@@ -398,7 +397,7 @@ export function DeckController() {
   // (goTo already put the slide's scroll positions back at the top.)
   useEffect(() => {
     // Next applies its metadata title during hydration; set ours a frame later.
-    const title = index === 0 ? "Keploy tutorial" : `${SLIDES[index].title} · Keploy tutorial`;
+    const title = index === 0 ? "Keploy Tutorial" : `${SLIDES[index].title} · Keploy Tutorial`;
     requestAnimationFrame(() => {
       document.title = title;
     });
@@ -536,7 +535,7 @@ export function SlideMenu() {
       </SheetTrigger>
       <SheetContent side="left" className="w-[20rem] gap-0 bg-paper p-0">
         <SheetHeader className="border-b border-rule px-5 py-4">
-          <SheetTitle className="text-left">Keploy tutorial</SheetTitle>
+          <SheetTitle className="text-left">Keploy Tutorial</SheetTitle>
           <div className="mt-2 flex items-center gap-3 text-[13px] text-graphite">
             <div
               className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"

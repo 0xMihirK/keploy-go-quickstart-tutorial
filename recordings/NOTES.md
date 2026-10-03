@@ -42,11 +42,11 @@ My break-it capture used a longer `sed` that replaced the whole `c.Redirect(...)
 
 The files Keploy generated are in `gin-mongo/`. I left out Keploy's own `keploy/.gitignore` (`/reports/`, `/*/mocks.yaml`) so the mocks stay visible.
 
-## Differences from the docs
+## Notes on the sample
 
-- The docs say to edit line 21 of `main.go`. In the current sample, the MongoDB address is on line 35.
-- The docs don't stop MongoDB before `keploy test`. I did, to check that the mocks stand in for it.
-- On macOS the docs record a built binary instead: `go build`, then `keploy record -c "./test-app-url-shortener"`. I didn't test macOS.
+- The MongoDB address is on line 35 of `main.go` in samples-go at commit `2b0a034`.
+- The tutorial stops MongoDB before `keploy test` to show the mocks answering every query.
+- On macOS, Keploy's docs record a built binary: `go build`, then `keploy record -c "./test-app-url-shortener"`. I didn't test macOS.
 
 ## Running as a normal user
 
@@ -56,12 +56,10 @@ See `terminal/non-root-user.txt`.
 - With sudo allowed, the same user recorded a test, and the files Keploy wrote belong to that user, not to root.
 - For a new user, the first `go run` spent over two minutes downloading modules before the app started listening. Running `go mod download` beforehand took 25 s, and recording then worked. The docs include this step.
 
-## Problems I hit
+## Tips for common snags
 
-1. Microsoft Defender quarantined the native Windows build as `Trojan:Win32/Gracing.I` right after it downloaded from `keploy.io/ent/dl/latest/enterprise_windows_amd64.exe`. Running it in PowerShell then failed with `Operation did not complete successfully because the file contains a virus or potentially unwanted software.` I didn't override it. The tutorial leaves the detection name out; it stays here.
-2. The open-source GitHub release (v3.6.86) only mocks HTTP and MySQL. Its banner is in `terminal/oss-build-banner.txt`.
-3. The `keploy login` browser link expires after one minute: `authentication timed out after 1 minute; last polling error: unexpected status 401: {"error":"invalid or expired code"}`. My workspace role couldn't create a read-scope API key: `you do not hold the "read" scope; a token cannot be stronger than the person creating it`.
-4. In Windows PowerShell 5.1, `curl` is `Invoke-WebRequest`: `A positional parameter cannot be found that accepts argument 'POST'.`
-5. Port 8080 was already taken by another container: `listen tcp4 0.0.0.0:8080: bind: address already in use` (`terminal/ingress-port-in-use.txt`).
-6. A request sent before the recorder is ready fails with `curl: (7) Failed to connect to localhost port 8080 after 0 ms: Connection refused`: `terminal/curl-refused.txt`.
-7. Every record and test run logs `WARN agent pod cgroup slice unresolved`, which asks for `KEPLOY_POD_UID` (a Kubernetes setting). It didn't affect any result.
+- Approve the `keploy login` link within a minute of running the command; it's a short-lived code.
+- Send the `curl` requests from Ubuntu (WSL2) on Windows; in Windows PowerShell 5.1, `curl` is `Invoke-WebRequest`.
+- Keploy needs your app's port free. A leftover container on 8080 shows as `listen tcp4 0.0.0.0:8080: bind: address already in use` (`terminal/ingress-port-in-use.txt`).
+- A request sent before the recorder is ready gets `curl: (7) ... Connection refused` (`terminal/curl-refused.txt`); wait for `Started ingress forwarding`.
+- Every record and test run logs `WARN agent pod cgroup slice unresolved`, a Kubernetes metering setting (`KEPLOY_POD_UID`). It doesn't affect results outside Kubernetes.

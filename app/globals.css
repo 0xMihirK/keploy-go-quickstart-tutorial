@@ -166,8 +166,8 @@
   }
 }
 /* Inline code inside accordion and tab panels matches the prose chips. */
-[data-slot="accordion-content"] :not(pre) > code,
-[data-slot="tabs-content"] :not(pre) > code {
+[data-slot="accordion-content"] code:not(pre code),
+[data-slot="tabs-content"] code:not(pre code) {
   font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 0.08em 0.32em;
@@ -189,7 +189,17 @@
   min-width: 0;
   max-width: 100%;
 }
+/* Terminal output scrolled past its first line: fade the top edge. */
+[role="log"][data-scrolled] {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 1.1rem);
+}
+
 /* Tab panels that hold markdown (the install tabs): same rhythm as the lesson. */
+figure[data-rehype-pretty-code-figure] code[data-language="diff"] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .tab-body {
   padding-top: 0.75rem;
   font-size: 15.5px;
@@ -315,7 +325,7 @@
 :is(.prose, .prose > [data-only]) > :is(ul, ol):not(.not-prose) > li::marker {
   color: var(--graphite);
 }
-:is(.prose, .prose > [data-only]) > :is(p, ul, ol, h2, h3):not(.not-prose) code {
+:is(.prose, .prose > [data-only]) > :is(p, ul, ol, h2, h3):not(.not-prose) code:not(pre code) {
   font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 0.08em 0.32em;

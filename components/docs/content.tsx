@@ -7,7 +7,6 @@ import {
   Info,
   Lightbulb,
   ShieldAlert,
-  X,
 } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -114,73 +113,6 @@ export function Pre(props: React.ComponentProps<"pre">) {
         <span className="sr-only sm:not-sr-only">{copied ? "Copied" : "Copy"}</span>
       </button>
     </div>
-  );
-}
-
-/* Quiz ------------------------------------------------------------------------ */
-
-export function Quiz({
-  question,
-  options,
-  answer,
-  explain,
-}: {
-  question: string;
-  options: string[];
-  answer: number;
-  explain: React.ReactNode;
-}) {
-  const [picked, setPicked] = useState<number | null>(null);
-  const right = picked === answer;
-  return (
-    <fieldset className="not-prose my-8 rounded-xl border border-rule bg-surface p-4 sm:p-5">
-      <legend className="sr-only">Check your understanding</legend>
-      <p className="text-[13px] font-medium text-graphite">Quick check</p>
-      <p className="mt-1 text-[17px] font-semibold text-ink">{question}</p>
-      <div className="mt-3 grid gap-2">
-        {options.map((o, i) => {
-          const state =
-            picked === null ? "idle" : i === answer ? "right" : i === picked ? "wrong" : "idle";
-          return (
-            <button
-              key={o}
-              type="button"
-              onClick={() => setPicked(i)}
-              aria-pressed={picked === i}
-              className={cn(
-                "flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[15px] transition-colors",
-                state === "right" && "border-replay bg-replay/[0.08]",
-                state === "wrong" && "border-record/60 bg-record/[0.06]",
-                state === "idle" && "border-rule hover:border-graphite/50",
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-semibold",
-                  state === "right" && "border-replay bg-replay text-white",
-                  state === "wrong" && "border-record bg-record text-white",
-                  state === "idle" && "border-rule text-graphite",
-                )}
-              >
-                {state === "right" ? <Check className="size-3" /> : state === "wrong" ? <X className="size-3" /> : String.fromCharCode(65 + i)}
-              </span>
-              <span className="text-ink/90">{o}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div aria-live="polite">
-        {picked !== null && (
-          <p className="mt-3 text-[15px] leading-relaxed text-ink/85">
-            <span className={cn("font-semibold", right ? "text-replay-text" : "text-record-text")}>
-              {right ? "Right. " : "Not quite. "}
-            </span>
-            {explain}
-          </p>
-        )}
-      </div>
-    </fieldset>
   );
 }
 

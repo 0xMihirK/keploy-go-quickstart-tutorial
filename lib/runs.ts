@@ -67,24 +67,39 @@ export async function streamLines(
   to: number,
   { onLine, onWait, signal, instant, speed = 1, isPaused, holdAfter }: StreamHandlers,
 ) {
+  // Each line is due at a running deadline, so the time React spends rendering
+  // a line comes out of the next delay instead of adding to it. Without this,
+  // a run of hundreds of short lines plays far slower than recorded.
+  let due = performance.now();
   for (let i = from; i < Math.min(to, lines.length); i++) {
     const line = lines[i];
     if (!instant) {
-      if (line.wait) {
-        onWait?.(line.wait, line.d);
-        await sleep(line.d, signal);
-        onWait?.(null, 0);
-      } else if (line.d > 4) {
-        await sleep(Math.max(6, line.d / speed), signal);
-      } else if (i % 6 === 0) {
-        // Same-chunk lines still arrive a frame apart, like a real tty.
-        await sleep(8, signal);
+      const ms = line.wait
+        ? line.d / speed
+        : line.d > 4
+          ? Math.max(6, line.d / speed)
+          : // Same-chunk lines still arrive a frame apart, like a real tty.
+            i % 6 === 0
+            ? 8
+            : 0;
+      if (ms) {
+        due += ms;
+        if (line.wait) onWait?.(line.wait, line.d);
+        await sleep(Math.max(0, due - performance.now()), signal);
+        if (line.wait) onWait?.(null, 0);
       }
     }
-    while (isPaused?.()) await sleep(120, signal);
+    if (isPaused?.()) {
+      while (isPaused?.()) await sleep(120, signal);
+      // Time spent paused is not caught up in a burst.
+      due = performance.now();
+    }
     onLine(line, i);
     const hold = instant ? 0 : (holdAfter?.(i) ?? 0);
-    if (hold) await sleep(hold, signal);
+    if (hold) {
+      await sleep(hold, signal);
+      due = performance.now();
+    }
   }
 }
 
