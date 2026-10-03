@@ -46,3 +46,6 @@ CLAUDE.md
 
 # browser automation artifacts
 .playwright-mcp/
+
+.vercel
+.env*
