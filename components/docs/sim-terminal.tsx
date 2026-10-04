@@ -407,14 +407,19 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   if (gutter) {
     const indent = plain.length - 1 - plain.slice(1).trimStart().length;
     return (
-      <div className="flex" style={{ fontSize: fitFont(BOX_COLS, 9) }}>
-        <span className="text-tape-dim">│</span>
-        <span
-          className="gutter-text min-w-0 whitespace-pre-wrap break-words"
+      // Keploy prints only the box's left "│". Both edges are borders instead, set
+      // under the ╭╮ corners (mid-column), so they run unbroken down wrapped lines
+      // and across the log's row gap (-my/py).
+      <div
+        className="-my-0.5 ml-[0.5ch] max-w-[calc(100%-0.5ch)] border-x border-tape-dim px-[calc(0.5ch-1px)] py-0.5"
+        style={{ fontSize: fitFont(BOX_COLS, 9), width: `${BOX_COLS - 2}ch` }}
+      >
+        <div
+          className="gutter-text whitespace-pre-wrap break-words"
           style={{ "--i": indent } as React.CSSProperties}
         >
-          {plain.slice(1).trimStart()}
-        </span>
+          {plain.slice(1).trimStart() || " "}
+        </div>
       </div>
     );
   }
