@@ -10,3 +10,4 @@ export const RecordSession = dynamic(() =>
 );
 export const NoiseLab = dynamic(() => import("./noise-lab").then((m) => m.NoiseLab));
 export const YamlExplorer = dynamic(() => import("./yaml-explorer").then((m) => m.YamlExplorer));
+export const AgentLab = dynamic(() => import("./agent-lab").then((m) => m.AgentLab));

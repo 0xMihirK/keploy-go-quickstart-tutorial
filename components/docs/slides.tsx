@@ -70,40 +70,6 @@ function SlideHeading({ id }: { id: string }) {
   );
 }
 
-/** Closing summary on the last slide: progress plus what the steps covered. */
-function Recap() {
-  const progress = useProgress();
-  const done = STEP_IDS.filter((id) => progress[id]).length;
-  const all = done === STEP_IDS.length;
-  return (
-    <div className={cn("not-prose rounded-lg border px-4 py-3.5", all ? "border-replay/40 bg-replay/[0.06]" : "border-rule bg-surface")}>
-      <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
-        {all && <Check className="size-4 text-replay-text" aria-hidden="true" />}
-        {all
-          ? `All ${STEP_IDS.length} steps checked off`
-          : done === 0
-            ? "The steps cover:"
-            : `${done} of ${STEP_IDS.length} steps checked off. The steps cover:`}
-      </p>
-      <ul className="mt-2 grid list-disc gap-1 pl-5 text-[15px] leading-snug text-ink/85 marker:text-graphite">
-        {all ? (
-          <>
-            <li>You recorded two requests as tests, and Keploy saved the app&apos;s MongoDB calls as mocks.</li>
-            <li>You replayed both tests with MongoDB stopped, and both passed.</li>
-            <li>You changed a redirect from 303 to 301, and the replay failed on it.</li>
-          </>
-        ) : (
-          <>
-            <li>Recording two requests as tests, with the app&apos;s MongoDB calls saved as mocks.</li>
-            <li>Replaying both tests with MongoDB stopped.</li>
-            <li>Changing a redirect from 303 to 301 and watching the replay fail on it.</li>
-          </>
-        )}
-      </ul>
-    </div>
-  );
-}
-
 /**
  * One page of the tutorial. It fills the space between the header and the
  * footer bar; on large screens its columns scroll on their own.
@@ -152,13 +118,15 @@ export function Slide({
                 className={cn(
                   "mx-auto w-full py-8 tall:pt-12 tall:pb-12 tall-short:pt-6",
                   // The first slide is a wide two-column hero, centred when it fits.
-                  id === "overview" ? "max-w-none tall:my-auto tall-short:py-6" : "prose max-w-[42rem] text-[16.5px]",
+                  id === "overview"
+            ? "max-w-none tall:my-auto tall-short:py-6"
+            : id === "next"
+              ? "max-w-[68rem]"
+              : "prose max-w-[42rem] text-[16.5px]",
                 )}
               >
                 {/* The first slide brings its own heading (IntroHero). */}
                 {id !== "overview" && <SlideHeading id={id} />}
-                {/* The last slide opens with a short recap before its links. */}
-                {id === "next" && <Recap />}
                 {children}
               </div>
             </ScrollColumn>

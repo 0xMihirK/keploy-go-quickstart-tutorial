@@ -26,8 +26,12 @@ Each run has a raw capture in `terminal/`. The `.ansi` file is the output and th
 | 30-gin-break | the same, after changing `StatusSeeOther` to `StatusMovedPermanently` |
 | 31-gin-nonoise | the same, after deleting `body.ts: []` from the test file |
 | 32-gin-globalnoise | the same, with `body.ts` only in `keploy.yml` under `test.globalNoise.global` |
+| 40-mcp-claude | `keploy mcp-install --editor claude-code` |
+| 42-mcp-antigravity | `keploy mcp-install --editor antigravity` |
 
 Before recording I ran `rm -rf keploy`, `sed -i 's/mongoDb:27017/localhost:27017/' main.go` and `docker compose up -d mongo`. The compose output is in `terminal/docker-compose.txt`. The tutorial also runs `docker network create keploy-network 2>/dev/null || true` before `docker compose up`, because of the external network above.
+
+The two `mcp-install` captures (October 4, 2026) ran in the same container under a throwaway home, `/home/you`, holding a copy of the login and an empty `~/.claude` or `~/.gemini/antigravity` directory so Keploy would find the agent. The home was deleted afterwards. Neither capture contains the token: without `--show-token`, Keploy writes it only to the agent's config file. Keploy revokes the previous MCP token when it creates a new one, so both runs printed a note that an earlier token was rotated. `scripts/import-captures.mjs` drops that note, because a first install has nothing to rotate. The agent sessions after the install on the AI agents page are illustrations.
 
 My break-it capture used a longer `sed` that replaced the whole `c.Redirect(...)` call. The tutorial shows a shorter `sed`. `StatusSeeOther` appears only once in `handler.go`, so both make the same edit.
 

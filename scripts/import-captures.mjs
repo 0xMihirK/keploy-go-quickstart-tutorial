@@ -66,6 +66,10 @@ for (const file of readdirSync(SRC).filter((f) => f.endsWith(".ansi"))) {
     const end = out.findIndex((l, i) => i > next && /^=+$/.test(l.text.replace(SGR, "").trim()));
     out.splice(next, (end === -1 ? out.length : end + 1) - next);
   }
+  // mcp-install notes that it revoked an earlier token; a first install has none
+  // to revoke and prints the rest unchanged. Drop the note and its blank line.
+  const rot = out.findIndex((l) => l.text.replace(SGR, "").startsWith("Note: a prior Keploy MCP PAT"));
+  if (rot !== -1) out.splice(rot, out[rot + 1]?.text.trim() ? 1 : 2);
   // Trim trailing blank lines.
   while (out.length && !out[out.length - 1].text.replace(SGR, "").trim()) out.pop();
 

@@ -1,0 +1,13 @@
+Script started on 2026-10-04 10:07:43+00:00 [<not executed on terminal>]
+🐰 Keploy: 2026-10-04T10:07:43.494472537Z 	[34mINFO[0m	Starting Keploy	{"version": "3.8.58", "apiServerURL": "https://api.keploy.io", "inDocker": false}
+
+🤖  Installing Keploy MCP into Claude Code (--editor claude-code):
+
+  ✓ Claude Code      /home/you/.claude.json
+
+Note: a prior Keploy MCP PAT for your user was rotated (revoked) server-side by this run. Any agent or project still holding the old token needs a fresh `keploy mcp-install` to pick up the new PAT.
+
+Next: fully quit and reopen each wired agent above to pick up the new Keploy MCP server.
+Then ask your AI agent:  "generate Keploy API tests for this service."
+
+Script done on 2026-10-04 10:07:44+00:00 [COMMAND_EXIT_CODE="0"]

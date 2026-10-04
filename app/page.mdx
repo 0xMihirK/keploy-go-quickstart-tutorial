@@ -1,8 +1,9 @@
 import { IntroHero } from "@/components/docs/hero";
 import { RecordReplaySim } from "@/components/docs/record-replay-sim";
 import { Slide, Lesson, Lab, GoTo } from "@/components/docs/slides";
-import { SimTerminal, RecordSession, NoiseLab } from "@/components/docs/lazy";
+import { SimTerminal, RecordSession, NoiseLab, AgentLab } from "@/components/docs/lazy";
 import { KeployFiles } from "@/components/docs/keploy-files";
+import { NextSteps } from "@/components/docs/next-steps";
 import { Callout, Checkpoint, TestedOn } from "@/components/docs/content";
 import {
   Tabs,
@@ -156,7 +157,7 @@ Keploy connects to a free Keploy account. After you record, Keploy uploads the m
 3. Keploy opens a sign-in page in your browser. If it can't, as in a WSL terminal, it prints the link instead; open it in the browser where you're signed in.
 4. Approve the sign-in. The link works for about a minute, so do it right away.
 
-The terminal then prints `Logged in successfully!` and your plan, `You are on the Keploy Free plan.` The `mcp-install` lines after that are optional; they connect Keploy to AI coding editors. On a machine with no browser at all, `keploy login --manual-login` gives you a manual login prompt instead of opening one.
+The terminal then prints `Logged in successfully!` and your plan, `You are on the Keploy Free plan.` The `mcp-install` lines after that are optional; they connect Keploy to AI coding agents, which <GoTo id="ai-agents">a later page</GoTo> covers. On a machine with no browser at all, `keploy login --manual-login` gives you a manual login prompt instead of opening one.
 
 <Checkpoint id="sign-in">
 
@@ -416,15 +417,62 @@ An empty list means "ignore this field, whatever its value". With the rule in `k
 </Lab>
 </Slide>
 
+<Slide id="ai-agents">
+<Lesson>
+
+Keploy hosts an MCP server at `api.keploy.io`. MCP is the protocol coding agents use to call outside tools, so with it an agent such as Claude Code can create and run Keploy tests when you ask it to. `keploy mcp-install` creates an access token (a PAT) for your Keploy account and adds the server to the agent's config, so sign in first (step 2).
+
+```bash title="Claude Code"
+keploy mcp-install --editor claude-code
+```
+
+`--editor` also takes `cursor`, `windsurf`, `claude-desktop`, `codex`, `antigravity` and `github-copilot`. For Antigravity, Keploy writes `~/.gemini/antigravity/mcp_config.json`. `--all` sets up every agent it finds on the machine except GitHub Copilot, which keeps no config file; for Copilot, `--editor github-copilot` prints blocks to paste into VS Code, JetBrains or Visual Studio.
+
+The agent tests the running app, so start it first: `docker compose start mongo`, then `go run main.go handler.go` in another terminal. Quit and reopen the agent so it loads the server, then ask it:
+
+```text title="Ask the agent"
+generate Keploy API tests for this service.
+```
+
+The agent reads your code, calls Keploy's tools to generate test suites for each endpoint, runs them against your app and reports back. The suites and their report are in your Keploy account.
+
+### OpenCode
+
+OpenCode isn't on `mcp-install`'s list, so add the server to `opencode.json` in your project. The file reads the key from an environment variable, so the key itself never lands in your repository:
+
+```json title="opencode.json"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "keploy": {
+      "type": "remote",
+      "url": "https://api.keploy.io/client/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:KEPLOY_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Create an API key at [app.keploy.io](https://app.keploy.io), set it with `export KEPLOY_API_KEY=` before you start `opencode`, and ask the same question.
+
+<Callout type="info" title="One token per account">
+
+On the same machine, `mcp-install` reuses the token saved in `~/.keploy/mcp.yaml`, so agents you already set up keep working. On another machine it creates a new token and revokes the old one, and agents still holding the old token get a 401 error. `keploy mcp-install --rotate --editor <name>` creates a fresh token on the machine where you need it.
+
+</Callout>
+
+No agent? `keploy status` shows where you are and the next step, in any terminal.
+
+</Lesson>
+<Lab>
+<AgentLab />
+</Lab>
+</Slide>
+
 <Slide id="next" layout="single">
 
-- **Run the tests in CI.** Commit the `keploy/` folder, add an API key from app.keploy.io as the `KEPLOY_API_KEY` secret, install Keploy in the job and run the same `keploy test` command. CI fetches the mocks by the hash in `config.yaml`, so record and replay once locally first. See the [GitHub Actions](https://keploy.io/docs/ci-cd/github/) and [GitLab](https://keploy.io/docs/ci-cd/gitlab/) guides.
-- **Record more cases.** Start MongoDB again with `docker compose start mongo`, run `keploy record` and send other requests, such as an unknown short code that returns 404. Each run adds a test set.
-- **Mock the tests you already have.** `keploy mock record -c "go test ./..."` saves the database and HTTP calls your existing suite makes, and `keploy mock replay -c "go test ./..."` runs the suite again with those calls answered from the mocks. It works the same with pytest or jest. See [Mock your tests](https://keploy.io/docs/running-keploy/mock-your-tests/).
-- **Generate unit tests.** Keploy's [PR agent](https://keploy.io/docs/running-keploy/utg-pr-agent/) writes unit tests on your pull requests and keeps only the ones that build, pass and raise coverage. It supports Go today, and JavaScript support is on the way.
-- **Try your own service.** Point `keploy record -c` at the command that starts your app. Don't record production data, since tests and mocks store request and response bodies as they are; `keploy sanitize` removes sensitive data from test cases.
-- **Explore other stacks.** Keploy's [quickstarts](https://keploy.io/docs/quickstart/quickstart-filter/) cover Python, Java, JavaScript and C#, and the [Go samples](https://github.com/keploy/samples-go) include gRPC, MySQL and Redis apps.
-
-Every terminal on this page replays a recorded run of these exact commands. The captures and generated files are in the [recordings folder](https://github.com/0xMihirK/keploy-go-quickstart-tutorial/tree/main/recordings) of the site's repository. Written by Mihir Katoch.
+<NextSteps />
 
 </Slide>

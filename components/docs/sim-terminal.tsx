@@ -42,8 +42,13 @@ export interface Cmd {
   cmd: string;
   /** Captured run (public/runs/<name>.json) to replay as output. */
   run?: string;
-  /** Static output lines, for commands that print little or nothing. */
-  out?: string[];
+  /** Static output lines, for commands that print little or nothing; a
+   *  RunLine sets its own delay (and r: 1 redraws, e.g. typing in a TUI). */
+  out?: (string | RunLine)[];
+  /** The program takes over the screen (an agent's TUI): its first line clears it. */
+  clear?: boolean;
+  /** Window title from this command on (the program now in front). */
+  title?: string;
   /** Working directory shown in the prompt for this command. */
   cwd?: string;
   /** Regex: pause streaming after the first matching line (e.g. "ready"). */
@@ -91,6 +96,8 @@ export function useShell() {
   const speedRef = useRef(1);
   // A command is loading or streaming (pause only applies then).
   const active = useRef(false);
+  // The running command takes over the screen on its first line.
+  const clearRef = useRef(false);
 
   const push = useCallback((kind: EntryKind, text: string, cwd?: string) => {
     setEntries((e) => [...e, { id: nextId++, kind, text, cwd }]);
@@ -99,6 +106,10 @@ export function useShell() {
   const onLine = useCallback((line: RunLine, i: number) => {
     setProgress((i + 1) / Math.max(1, lines.current.length));
     setEntries((e) => {
+      if (clearRef.current) {
+        clearRef.current = false;
+        return [{ id: nextId++, kind: "out", text: line.text }];
+      }
       if (line.r && e.length && e[e.length - 1].kind === "out") {
         const copy = e.slice();
         copy[copy.length - 1] = { ...copy[copy.length - 1], text: line.text };
@@ -182,13 +193,13 @@ export function useShell() {
           return "aborted";
         }
       } else {
-        lines.current = (c.out ?? []).map((text, i) => ({
-          d: i === 0 ? 280 : 40,
-          text,
-        }));
+        lines.current = (c.out ?? []).map((l, i) =>
+          typeof l === "string" ? { d: i === 0 ? 280 : 40, text: l } : l,
+        );
         setReal(null);
       }
       speedRef.current = (c.run && RUN_SPEED[c.run]) || 1;
+      clearRef.current = !!c.clear;
       pos.current = 0;
       setProgress(0);
       setOutcome(null);
@@ -221,6 +232,7 @@ export function useShell() {
     abort.current?.abort();
     active.current = false;
     heldRef.current = false;
+    clearRef.current = false;
     setHeld(false);
     lines.current = [];
     pos.current = 0;
@@ -534,6 +546,9 @@ export interface SimTerminalProps {
   className?: string;
   /** Called after each command finishes (index). */
   onCommandDone?: (index: number) => void;
+  /** Called when the last command's result has been shown, instead of
+   *  starting over (a parent that switches to another script). */
+  onFinish?: () => void;
   label?: string;
 }
 
@@ -550,6 +565,7 @@ export function SimTerminal({
   maxHeight = "var(--term-h)",
   className,
   onCommandDone,
+  onFinish,
   label = "Terminal",
 }: SimTerminalProps) {
   const shell = useShell();
@@ -557,6 +573,7 @@ export function SimTerminal({
   const [typing, setTyping] = useState(false);
   const [playing, setPlaying] = useState(true);
   const [runs, setRuns] = useState(0);
+  const [program, setProgram] = useState<string | null>(null);
   // A run that failed to load; stop instead of retrying forever.
   const [broken, setBroken] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -573,6 +590,7 @@ export function SimTerminal({
     const g = gen.current;
     const c = commands[step];
     shell.push("cmd", c.cmd, promptCwd);
+    if (c.title) setProgram(c.title);
     const result = await shell.exec(c, { demo: true });
     if (gen.current !== g) return;
     if (result === "aborted") {
@@ -587,6 +605,7 @@ export function SimTerminal({
   const restart = () => {
     gen.current++;
     shell.reset();
+    setProgram(null);
     setStep(0);
     setTyping(false);
   };
@@ -595,7 +614,7 @@ export function SimTerminal({
   useEffect(() => {
     if (!live || busy || typing || broken) return;
     const t = done
-      ? setTimeout(restart, shell.outcome ? 6500 : 4000)
+      ? setTimeout(onFinish ?? restart, shell.outcome ? 6500 : 4000)
       : setTimeout(
           () => setTyping(true),
           step === 0 ? 700 : 1100,
@@ -615,7 +634,7 @@ export function SimTerminal({
       <Terminal
         glow
         sequence={false}
-        title={`${title} — ${promptCwd}`}
+        title={`${program ?? title} — ${promptCwd}`}
         mode={outcomeMode(shell.outcome, mode)}
         controls={
           <LoopButton
@@ -632,7 +651,8 @@ export function SimTerminal({
         footer={
           <PromptLine
             cwd={promptCwd}
-            busy={busy}
+            // An agent's screen stays up after its session: just its cursor.
+            busy={busy || (done && !!commands.at(-1)?.clear)}
             command={typing ? current?.cmd : undefined}
             onTyped={() => {
               setTyping(false);

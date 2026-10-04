@@ -22,6 +22,7 @@ export const SLIDES: SlideMeta[] = [
   { id: "replay", title: "Replay with the database off", group: "steps" },
   { id: "break", title: "Break it on purpose", group: "steps" },
   { id: "noise", title: "Fields that change on every run", nav: "Noise", group: "after" },
+  { id: "ai-agents", title: "Connect Keploy to your AI agent", nav: "AI agents", group: "after" },
   { id: "next", title: "Where to go next", group: "after" },
 ];
 
