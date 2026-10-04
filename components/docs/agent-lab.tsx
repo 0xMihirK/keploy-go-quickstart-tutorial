@@ -13,6 +13,8 @@ const ESC = "[";
 const dim = (s: string) => `${ESC}2m${s}${ESC}0m`;
 
 const CWD = "~/samples-go/gin-mongo";
+// Each agent was recorded at these terminal widths (28 rows each).
+const COLS = [92, 120, 150];
 
 interface Agent {
   id: string;
@@ -29,7 +31,7 @@ const AGENTS: Agent[] = [
     note: "Both are recordings: Keploy 3.8.58's install output (minus one line about replacing an earlier token), then Claude Code 2.1.289's own screen. Claude's replies and Keploy's tool results come from a local stand-in, so the conversation is scripted.",
     commands: [
       { cmd: "keploy mcp-install --editor claude-code", run: "40-mcp-claude", cwd: CWD },
-      { cmd: "claude", cwd: CWD, screen: "agent-claude-code", title: "claude" },
+      { cmd: "claude", cwd: CWD, screen: "agent-claude-code", screenCols: COLS, title: "claude" },
     ],
   },
   {
@@ -44,7 +46,7 @@ const AGENTS: Agent[] = [
         cwd: CWD,
         out: ['Added MCP server "keploy" (http)'],
       },
-      { cmd: "agy", cwd: CWD, screen: "agent-antigravity", title: "agy" },
+      { cmd: "agy", cwd: CWD, screen: "agent-antigravity", screenCols: COLS, title: "agy" },
     ],
   },
   {
@@ -72,7 +74,7 @@ const AGENTS: Agent[] = [
           "}",
         ],
       },
-      { cmd: "opencode", cwd: CWD, screen: "agent-opencode", title: "opencode" },
+      { cmd: "opencode", cwd: CWD, screen: "agent-opencode", screenCols: COLS, title: "opencode" },
     ],
   },
 ];

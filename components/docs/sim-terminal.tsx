@@ -48,6 +48,9 @@ export interface Cmd {
   title?: string;
   /** Captured screen frames (public/runs/<name>.json) of a full-screen program. */
   screen?: string;
+  /** The program was recorded at these widths (<screen>-<cols>.json, all
+   *  SCREEN_ROWS tall); the one whose shape best fits the window plays. */
+  screenCols?: number[];
   /** Working directory shown in the prompt for this command. */
   cwd?: string;
   /** Regex: pause streaming after the first matching line (e.g. "ready"). */
@@ -65,6 +68,22 @@ const HOLD_MS = 2500;
 
 /** Playback speed per captured run (1 = real pacing, capped as recorded). */
 const RUN_SPEED: Record<string, number> = { "01-install": 1.5 };
+
+const SCREEN_ROWS = 28;
+
+/** The recorded width whose shape (cells are 1ch x 2ch) wastes least of the box. */
+function pickCols(cols: number[], box: Element | null | undefined) {
+  if (!box) return cols[0];
+  const cs = getComputedStyle(box);
+  const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const fit = (c: number) => {
+    const g = c / (2 * SCREEN_ROWS);
+    const a = w / h;
+    return Math.min(a, g) / Math.max(a, g);
+  };
+  return cols.reduce((best, c) => (fit(c) > fit(best) ? c : best));
+}
 
 /** Width of the installer's box (its ╭───╮ border), in characters. */
 const BOX_COLS = 77;
@@ -664,9 +683,11 @@ export function SimTerminal({
 
   const runCurrent = async () => {
     const g = gen.current;
-    const c = commands[step];
+    let c = commands[step];
     shell.push("cmd", c.cmd, promptCwd);
     if (c.title) setProgram(c.title);
+    if (c.screen && c.screenCols)
+      c = { ...c, screen: `${c.screen}-${pickCols(c.screenCols, rootRef.current?.querySelector("[role=log]"))}` };
     const result = await shell.exec(c, { demo: true });
     if (gen.current !== g) return;
     if (result === "aborted") {

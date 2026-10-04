@@ -2,10 +2,10 @@
 """Run OpenCode in tmux (92x28), type the prompt, sample the pane every ~120 ms, write frames JSON.
 Run as user "you" inside the cap-opencode container:  python3 /opt/standin/capture.py /tmp/agent-opencode.json
 """
-import json, re, subprocess, sys, time
+import json, os, re, subprocess, sys, time
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/agent-opencode.json"
-COLS, ROWS = 92, 28
+COLS, ROWS = int(os.environ.get("COLS", 92)), int(os.environ.get("ROWS", 28))
 PROMPT = "generate Keploy API tests for this service."
 DONE_MARK = "Keploy account."
 NON_SGR = re.compile(r"\x1b(?:\[[0-9;:?<>=]*[A-Za-ln-z@`~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[()][A-Za-z0-9]|[=>78])")

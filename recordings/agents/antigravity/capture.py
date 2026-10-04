@@ -4,7 +4,7 @@ prompt, samples the screen every ~120 ms and writes frames JSON (arg 1, default 
 import json, os, re, subprocess, sys, time
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/frames.json"
-COLS, ROWS = 92, 28
+COLS, ROWS = int(os.environ.get("COLS", 92)), int(os.environ.get("ROWS", 28))
 PROMPT = "generate Keploy API tests for this service."
 DONE = "The report is in your Keploy account."
 HOME = "/home/you"
