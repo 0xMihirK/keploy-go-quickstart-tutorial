@@ -387,9 +387,9 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   }
   if (isBlockArt(entry.text)) return <BlockArt text={entry.text} />;
   const plain = stripAnsi(entry.text);
-  // The installer's left-gutter box ("│" plus ~30 spaces of indent, wrapped
-  // for a much wider terminal). Same words, a quarter of the indent, and it
-  // wraps under its own indent instead of running off the window.
+  // The installer's left-gutter box: "│" plus Keploy's own indent. The text keeps
+  // its column (so continuation lines sit under the line they continue) and an
+  // overlong line wraps under its own indent; narrow terminals shrink the indent.
   if (plain === entry.text && /^[╭╰]─+[╮╯]$/.test(plain)) {
     return <div className="max-w-full overflow-hidden whitespace-pre text-tape-dim">{plain}</div>;
   }
@@ -400,8 +400,8 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
       <div className="flex">
         <span className="text-tape-dim">│</span>
         <span
-          className="min-w-0 whitespace-pre-wrap break-words"
-          style={{ paddingLeft: `${Math.ceil(indent / 4)}ch` }}
+          className="gutter-text min-w-0 whitespace-pre-wrap break-words"
+          style={{ "--i": indent } as React.CSSProperties}
         >
           {plain.slice(1).trimStart()}
         </span>

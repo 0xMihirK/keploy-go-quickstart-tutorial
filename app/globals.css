@@ -198,6 +198,20 @@
   min-width: 0;
   max-width: 100%;
 }
+/* Installer box lines keep Keploy's indent (in character columns) when the
+   terminal is wide enough to show the 76-column box, and shrink it when not. */
+[role="log"] {
+  container-type: inline-size;
+}
+.gutter-text {
+  padding-left: calc(var(--i) * 1ch);
+}
+@container (max-width: 36rem) {
+  .gutter-text {
+    padding-left: calc(var(--i) * 0.25ch);
+  }
+}
+
 /* Terminal output scrolled past its first line: fade the top edge. */
 [role="log"][data-scrolled] {
   mask-image: linear-gradient(to bottom, transparent 0, #000 0.4rem);
