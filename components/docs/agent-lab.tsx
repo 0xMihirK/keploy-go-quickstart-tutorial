@@ -107,8 +107,10 @@ export function AgentLab() {
       <SimTerminal
         key={agent.id}
         className="mt-4 mb-3"
-        // Short windows: leave room for the picker and the note in the pane.
-        maxHeight="min(var(--term-h), calc(100dvh - 24rem))"
+        // The recorded screens are 92 x 28 cells of 1ch x 2ch: the log takes that
+        // shape (100cqw is the window's width, minus the log's padding) so they
+        // fill it, but leaves room for the picker and note on short windows.
+        maxHeight="min(calc((100cqw - 2rem) * 56 / 92 + 1.75rem), calc(100dvh - 24rem))"
         cwd={CWD}
         commands={agent.commands}
         onFinish={() => setI((n) => (n + 1) % AGENTS.length)}

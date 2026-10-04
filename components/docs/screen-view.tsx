@@ -448,8 +448,9 @@ export function ScreenView({
       >
         0000000000
       </span>
+      {/* Centred when the window's height, not its width, sets the size. */}
       <div
-        className="relative"
+        className="relative mx-auto"
         style={{
           width: `${cols}ch`,
           height: `${rows * 2}ch`,
