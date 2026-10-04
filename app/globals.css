@@ -198,18 +198,13 @@
   min-width: 0;
   max-width: 100%;
 }
-/* Installer box lines keep Keploy's indent (in character columns) when the
-   terminal is wide enough to show the 76-column box, and shrink it when not. */
+/* Terminal lines size themselves to the log's width (cqw): the installer box
+   and Keploy's diff tables keep their columns at any window size. */
 [role="log"] {
   container-type: inline-size;
 }
 .gutter-text {
   padding-left: calc(var(--i) * 1ch);
-}
-@container (max-width: 36rem) {
-  .gutter-text {
-    padding-left: calc(var(--i) * 0.25ch);
-  }
 }
 
 /* Terminal output scrolled past its first line: fade the top edge. */
@@ -381,19 +376,18 @@ figure[data-rehype-pretty-code-figure] {
   background: var(--surface);
   overflow: hidden;
 }
-/* Phones: long commands wrap under a hanging indent instead of clipping. */
-@media (max-width: 40rem) {
-  figure[data-rehype-pretty-code-figure] pre {
-    padding-right: 1.1rem;
-  }
-  figure[data-rehype-pretty-code-figure] pre code {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  figure[data-rehype-pretty-code-figure] pre code [data-line] {
-    padding-left: 2ch;
-    text-indent: -2ch;
-  }
+/* A command longer than its box (a narrow lesson column, a phone) wraps under
+   a hanging indent instead of clipping; at normal widths every command fits. */
+figure[data-rehype-pretty-code-figure] pre {
+  padding-right: 1.1rem;
+}
+figure[data-rehype-pretty-code-figure] pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+figure[data-rehype-pretty-code-figure] pre code [data-line] {
+  padding-left: 2ch;
+  text-indent: -2ch;
 }
 /* Long commands scroll sideways instead of breaking mid-token. The Copy
    button sits in its own column beside the pre (see Pre), so it never covers code. */

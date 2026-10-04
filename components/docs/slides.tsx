@@ -142,7 +142,7 @@ export function Slide({
         >
           {layout === "split" ? (
             // Stacked (small or short windows): one centred, readable column.
-            <div className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-rows-[minmax(0,1fr)] tall:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
+            <div data-split className="mx-auto max-w-3xl tall:grid tall:h-full tall:max-w-none tall:grid-rows-[minmax(0,1fr)] tall:grid-cols-[minmax(0,var(--lesson-w,32rem))_minmax(0,1fr)] xl:tall:grid-cols-[minmax(0,var(--lesson-w,34rem))_minmax(0,1fr)]">
               {children}
             </div>
           ) : (
@@ -178,9 +178,12 @@ function ScrollColumn({
   className,
   scrollClassName,
   labScroll = false,
+  edge,
   children,
   ...rest
 }: {
+  /** Rendered beside the scroller (not inside it), e.g. the column resizer. */
+  edge?: React.ReactNode;
   /** The lab column: no scroll masks over the animated terminals. */
   labScroll?: boolean;
   /** Names the column as a region; leave out when something else labels it. */
@@ -210,6 +213,7 @@ function ScrollColumn({
 
   return (
     <div className={cn("relative min-w-0 tall:min-h-0", className)} {...rest}>
+      {edge}
       <div
         ref={ref}
         data-scroll
@@ -285,6 +289,7 @@ export function Lab({ children }: { children: React.ReactNode }) {
       // terminal has room to spread instead of being clipped by the column.
       className="tall:-mr-8 tall:h-full"
       labScroll
+      edge={<ColumnResizer />}
       scrollClassName="pb-8 tall:border-l tall:border-rule tall:pt-12 tall:pb-12 tall:pl-10 tall:pr-8 tall-short:pt-6 tall-short:pb-6"
     >
       {/* Centered in the column when it fits (auto margins drop to 0 when it
@@ -293,6 +298,96 @@ export function Lab({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </ScrollColumn>
+  );
+}
+
+const LESSON_MIN = 22 * 16;
+const LESSON_MAX = 48 * 16;
+const LESSON_KEY = "keploy-tutorial:lesson-width";
+
+function setLessonWidth(px: number | null) {
+  const root = document.documentElement;
+  if (px === null) root.style.removeProperty("--lesson-w");
+  else root.style.setProperty("--lesson-w", `${Math.round(px)}px`);
+}
+
+/**
+ * The divider between the lesson and the lab: drag it (or focus it and use
+ * the arrow keys) to make either column wider. Double-click resets it. The
+ * width is shared by every slide and remembered on this device.
+ */
+function ColumnResizer() {
+  const [width, setWidth] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem(LESSON_KEY));
+      if (saved) {
+        setLessonWidth(saved);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- restore the saved width once
+        setWidth(saved);
+      }
+    } catch {
+      /* storage blocked: keep the default */
+    }
+  }, []);
+  const commit = (px: number | null) => {
+    const v = px === null ? null : Math.min(LESSON_MAX, Math.max(LESSON_MIN, px));
+    setLessonWidth(v);
+    setWidth(v);
+    try {
+      if (v === null) localStorage.removeItem(LESSON_KEY);
+      else localStorage.setItem(LESSON_KEY, String(Math.round(v)));
+    } catch {
+      /* storage blocked */
+    }
+  };
+  const current = (el: HTMLElement) => {
+    const split = el.closest<HTMLElement>("[data-split]");
+    return split?.firstElementChild?.getBoundingClientRect().width ?? 512;
+  };
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize the lesson and example columns"
+      aria-valuemin={LESSON_MIN}
+      aria-valuemax={LESSON_MAX}
+      aria-valuenow={width ?? undefined}
+      tabIndex={0}
+      onPointerDown={(e) => {
+        const el = e.currentTarget;
+        const left = el.closest<HTMLElement>("[data-split]")?.getBoundingClientRect().left ?? 0;
+        el.setPointerCapture(e.pointerId);
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        const move = (ev: PointerEvent) => commit(ev.clientX - left);
+        const up = () => {
+          el.removeEventListener("pointermove", move);
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
+        };
+        el.addEventListener("pointermove", move);
+        el.addEventListener("pointerup", up, { once: true });
+        el.addEventListener("pointercancel", up, { once: true });
+      }}
+      onDoubleClick={() => commit(null)}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        e.stopPropagation();
+        commit(current(e.currentTarget) + (e.key === "ArrowRight" ? 32 : -32));
+      }}
+      className="group absolute inset-y-0 -left-2 z-30 hidden w-4 cursor-col-resize touch-none outline-none tall:block"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-orange/60 group-focus-visible:bg-orange group-active:bg-orange"
+      />
+      <span
+        aria-hidden="true"
+        className="absolute top-1/2 left-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-graphite/40 transition-colors group-hover:bg-orange group-focus-visible:bg-orange group-active:bg-orange"
+      />
+    </div>
   );
 }
 

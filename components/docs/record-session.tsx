@@ -86,7 +86,6 @@ export function RecordSession({
   const nextReq = requests[sent];
   const canStop = phase === "listening" && sent >= requests.length && !sending;
   // Reduced motion: play through once with no animation and stay on the result.
-  const finished = phase === "done" && reduce;
 
   const startRecord = async () => {
     const g = gen.current;
@@ -109,13 +108,13 @@ export function RecordSession({
     if (r === "aborted") return setBroken(true);
     const n = sent + 1;
     setSent(n);
-    await a.sleep(reduce ? 0 : RESPONSE_MS);
+    await a.sleep(RESPONSE_MS);
     if (gen.current !== g) return;
     // Keploy logs the captured test case in the recording pane: bring it
     // forward so the line is visible, then hand Terminal 2 back.
     setFront("a");
     if ((await a.stream(CAPTURED)) === "aborted" || gen.current !== g) return;
-    await a.sleep(reduce ? 0 : PEEK_MS);
+    await a.sleep(PEEK_MS);
     if (gen.current !== g) return;
     if (n < requests.length) setFront("b");
     setSending(false);
@@ -150,15 +149,15 @@ export function RecordSession({
 
   // The loop. Each branch waits a beat, then takes the next step.
   useEffect(() => {
-    if (!live || typingA || typingB || broken || finished) return;
+    if (!live || typingA || typingB || broken) return;
     let ms = 0;
     let act: (() => void) | null = null;
     if (phase === "start") {
       ms = 700;
-      act = () => (reduce ? void startRecord() : setTypingA(true));
+      act = () => setTypingA(true);
     } else if (phase === "listening" && !b.running && !sending && nextReq) {
       ms = sent > 0 ? 1500 : 900;
-      act = () => (reduce ? void sendRequest() : setTypingB(true));
+      act = () => setTypingB(true);
     } else if (canStop) {
       ms = 1300;
       act = () => void stop();
@@ -167,10 +166,10 @@ export function RecordSession({
       act = reset;
     }
     if (!act) return;
-    const t = setTimeout(act, reduce ? 0 : ms);
+    const t = setTimeout(act, ms);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the actions read current state when they fire
-  }, [live, typingA, typingB, broken, finished, phase, sent, sending, b.running, canStop, reduce]);
+  }, [live, typingA, typingB, broken, phase, sent, sending, b.running, canStop]);
 
   // Leaving the screen mid-way through typing: retype it on return.
   useEffect(() => {
@@ -213,8 +212,8 @@ export function RecordSession({
             )}
             controls={
               <LoopButton
-                playing={playing && !finished}
-                onToggle={() => (finished ? reset() : setPlaying((p) => !p))}
+                playing={playing}
+                onToggle={() => setPlaying((p) => !p)}
               />
             }
             copyText={record.cmd}

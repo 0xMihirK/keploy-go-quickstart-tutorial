@@ -20,7 +20,6 @@ import { Ansi, BlockArt, isBlockArt, stripAnsi } from "@/lib/ansi";
 import { loadRun, streamLines, type RunLine } from "@/lib/runs";
 import { Prompt } from "./prompt";
 import { cn } from "@/lib/utils";
-import { useReducedMotion } from "@/lib/reduced-motion";
 import { usePageVisible } from "@/lib/page-visible";
 import { LoopButton } from "./loop-button";
 
@@ -63,6 +62,9 @@ const HOLD_MS = 2500;
 /** Playback speed per captured run (1 = real pacing, capped as recorded). */
 const RUN_SPEED: Record<string, number> = { "01-install": 1.5 };
 
+/** Width of the installer's box (its ╭───╮ border), in characters. */
+const BOX_COLS = 77;
+
 interface WaitState {
   secs: number;
   ms: number;
@@ -80,7 +82,6 @@ export function useShell() {
   const [real, setReal] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [outcome, setOutcome] = useState<"pass" | "fail" | null>(null);
-  const reduce = useReducedMotion();
 
   const lines = useRef<RunLine[]>([]);
   const pos = useRef(0);
@@ -132,7 +133,6 @@ export function useShell() {
           onLine,
           onWait: (secs, ms) => setWait(secs ? { secs, ms: ms / speedRef.current } : null),
           signal: ctrl.signal,
-          instant: !!reduce,
           speed: speedRef.current,
           isPaused: () => heldRef.current,
           holdAfter: (i) => (i === holdIdx ? HOLD_MS : 0),
@@ -157,7 +157,7 @@ export function useShell() {
       setRunning(false);
       return "done";
     },
-    [onLine, reduce],
+    [onLine],
   );
 
   /** Runs a command; `demo` applies the holds meant for the self-playing loop. */
@@ -391,13 +391,17 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   // its column (so continuation lines sit under the line they continue) and an
   // overlong line wraps under its own indent; narrow terminals shrink the indent.
   if (plain === entry.text && /^[╭╰]─+[╮╯]$/.test(plain)) {
-    return <div className="max-w-full overflow-hidden whitespace-pre text-tape-dim">{plain}</div>;
+    return (
+      <div className="max-w-full overflow-hidden whitespace-pre text-tape-dim" style={{ fontSize: fitFont(BOX_COLS, 9) }}>
+        {plain}
+      </div>
+    );
   }
   const gutter = plain === entry.text && /^│( +\S|\s*$)/.test(plain) && !plain.slice(1).includes("│");
   if (gutter) {
     const indent = plain.length - 1 - plain.slice(1).trimStart().length;
     return (
-      <div className="flex">
+      <div className="flex" style={{ fontSize: fitFont(BOX_COLS, 9) }}>
         <span className="text-tape-dim">│</span>
         <span
           className="gutter-text min-w-0 whitespace-pre-wrap break-words"
@@ -423,10 +427,11 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
         : null;
   return (
     <div
+      style={table ? { fontSize: fitFont(plain.length) } : undefined}
       data-fail={isFail ? "" : undefined}
       data-summary={isSummary ? "" : undefined}
       className={cn(
-        table ? "w-max whitespace-pre leading-[1.2]" : "whitespace-pre-wrap break-words",
+        table ? "w-max max-w-full overflow-hidden whitespace-pre leading-[1.2]" : "whitespace-pre-wrap break-words",
         accent && "-mx-2 px-2",
         accent,
         captured && "line-flash",
@@ -436,6 +441,15 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
     </div>
   );
 });
+
+/**
+ * Font size that fits a line of `cols` characters into the terminal's width
+ * (100cqw of the log), never larger than the terminal font and never below
+ * a readable floor. Lines of one table share a length, so they share a size.
+ */
+function fitFont(cols: number, floor = 8) {
+  return `max(${floor}px, min(1em, calc(100cqw / ${(cols * 0.6).toFixed(1)})))`;
+}
 
 /** The prompt line under the output. The loop types each command here. */
 export function PromptLine({
@@ -528,7 +542,6 @@ export function SimTerminal({
   label = "Terminal",
 }: SimTerminalProps) {
   const shell = useShell();
-  const reduce = useReducedMotion();
   const [step, setStep] = useState(0);
   const [typing, setTyping] = useState(false);
   const [playing, setPlaying] = useState(true);
@@ -544,7 +557,6 @@ export function SimTerminal({
   const promptCwd = current?.cwd ?? commands[commands.length - 1]?.cwd ?? cwd;
   const busy = shell.running;
   // Reduced motion: play through once with no animation and stay on the result.
-  const finished = done && reduce;
 
   const runCurrent = async () => {
     const g = gen.current;
@@ -570,16 +582,16 @@ export function SimTerminal({
 
   // The loop: type the next command, run it, hold on the result, start over.
   useEffect(() => {
-    if (!live || busy || typing || broken || finished) return;
+    if (!live || busy || typing || broken) return;
     const t = done
       ? setTimeout(restart, shell.outcome ? 6500 : 4000)
       : setTimeout(
-          () => (reduce ? void runCurrent() : setTyping(true)),
-          reduce ? 0 : step === 0 ? 700 : 1100,
+          () => setTyping(true),
+          step === 0 ? 700 : 1100,
         );
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restart/runCurrent read current state when they fire
-  }, [live, busy, typing, broken, finished, done, step, shell.outcome, reduce]);
+  }, [live, busy, typing, broken, done, step, shell.outcome]);
 
   // Leaving the screen mid-way through typing: retype it on return.
   useEffect(() => {
@@ -596,8 +608,8 @@ export function SimTerminal({
         mode={outcomeMode(shell.outcome, mode)}
         controls={
           <LoopButton
-            playing={playing && !finished}
-            onToggle={() => (finished ? restart() : setPlaying((p) => !p))}
+            playing={playing}
+            onToggle={() => setPlaying((p) => !p)}
           />
         }
         copyText={commands.map((c) => c.cmd).join("\n")}
