@@ -426,7 +426,7 @@ Keploy hosts an MCP server at `api.keploy.io`. MCP is the protocol coding agents
 keploy mcp-install --editor claude-code
 ```
 
-`--editor` also takes `cursor`, `windsurf`, `claude-desktop`, `codex`, `antigravity` and `github-copilot`. For Antigravity, Keploy writes `~/.gemini/antigravity/mcp_config.json`. `--all` sets up every agent it finds on the machine except GitHub Copilot, which keeps no config file; for Copilot, `--editor github-copilot` prints blocks to paste into VS Code, JetBrains or Visual Studio.
+`--editor` also takes `cursor`, `windsurf`, `claude-desktop`, `codex`, `antigravity` and `github-copilot`. `--all` sets up every agent it finds on the machine except GitHub Copilot, which keeps no config file; for Copilot, `--editor github-copilot` prints blocks to paste into VS Code, JetBrains or Visual Studio.
 
 The agent tests the running app, so start it first: `docker compose start mongo`, then `go run main.go handler.go` in another terminal. Quit and reopen the agent so it loads the server, then ask it:
 
@@ -436,9 +436,22 @@ generate Keploy API tests for this service.
 
 The agent reads your code, calls Keploy's tools to generate test suites for each endpoint, runs them against your app and reports back. The suites and their report are in your Keploy account.
 
-### OpenCode
+### Antigravity CLI and OpenCode
 
-OpenCode isn't on `mcp-install`'s list, so add the server to `opencode.json` in your project. The file reads the key from an environment variable, so the key itself never lands in your repository:
+`mcp-install` doesn't set up these two. Its `antigravity` option writes `~/.gemini/antigravity/mcp_config.json`, but the Antigravity CLI (`agy`) reads `~/.gemini/config/mcp_config.json`, and OpenCode isn't on its list. Both connect with an API key instead: create one at [app.keploy.io](https://app.keploy.io) and put it in an environment variable.
+
+```bash
+export KEPLOY_API_KEY=kep_...
+```
+
+For the Antigravity CLI, `agy mcp add` registers the server:
+
+```bash title="Antigravity CLI"
+agy mcp add --header "Authorization: Bearer $KEPLOY_API_KEY" \
+  keploy https://api.keploy.io/client/v1/mcp
+```
+
+For OpenCode, add the server to `opencode.json` in your project. The file reads the key from the environment, so the key never lands in your repository:
 
 ```json title="opencode.json"
 {
@@ -455,7 +468,7 @@ OpenCode isn't on `mcp-install`'s list, so add the server to `opencode.json` in 
 }
 ```
 
-Create an API key at [app.keploy.io](https://app.keploy.io), set it with `export KEPLOY_API_KEY=` before you start `opencode`, and ask the same question.
+Then start `agy` or `opencode` and ask the same question.
 
 <Callout type="info" title="One token per account">
 

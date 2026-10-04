@@ -54,16 +54,17 @@ function xterm256(n: number): string {
   return `rgb(${v},${v},${v})`;
 }
 
-interface Style {
+export interface Style {
   fg?: string;
   bg?: string;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
   underline?: boolean;
+  inverse?: boolean;
 }
 
-function apply(style: Style, codes: number[]): Style {
+export function apply(style: Style, codes: number[]): Style {
   const s = { ...style };
   for (let i = 0; i < codes.length; i++) {
     const c = codes[i];
@@ -72,6 +73,8 @@ function apply(style: Style, codes: number[]): Style {
     else if (c === 2) s.dim = true;
     else if (c === 3) s.italic = true;
     else if (c === 4) s.underline = true;
+    else if (c === 7) s.inverse = true;
+    else if (c === 27) s.inverse = false;
     else if (c === 22) s.bold = s.dim = false;
     else if (c === 23) s.italic = false;
     else if (c === 24) s.underline = false;

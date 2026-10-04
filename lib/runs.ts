@@ -6,6 +6,8 @@ export interface RunLine {
   wait?: number;
   /** 1 = redraw the previous line (carriage-return progress) */
   r?: 1;
+  /** A whole screen of a full-screen program (an agent's TUI), replacing the last. */
+  screen?: string[];
 }
 
 export interface Run {

@@ -1,57 +1,10 @@
 "use client";
-import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
-import { useProgress } from "@/lib/progress";
-import { STEP_IDS, goTo, indexOf } from "@/lib/slides";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { goTo, indexOf } from "@/lib/slides";
 import { cn } from "@/lib/utils";
 
 const DOCS = "https://keploy.io/docs";
 const REPO = "https://github.com/0xMihirK/keploy-go-quickstart-tutorial";
-
-/**
- * What the steps did, as the three commands that did it, in the same tape
- * colours as the first slide: record, replay, and the replay that failed.
- */
-function RunLog() {
-  const progress = useProgress();
-  const done = STEP_IDS.filter((id) => progress[id]).length;
-  const all = done === STEP_IDS.length;
-  const rows = [
-    { cmd: "keploy record", tone: "text-[#ff8a8e]", what: "Two requests saved as tests, MongoDB calls saved as mocks" },
-    { cmd: "keploy test", tone: "text-[#5fe0d8]", what: "Both tests replayed and passed with MongoDB stopped" },
-    { cmd: "keploy test", tone: "text-[#ff6b70]", what: "A 303 changed to 301, and the replay failed on it", failed: true },
-  ];
-  return (
-    <section aria-labelledby="run-log-title" className="overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-tape-rule px-4 py-2.5">
-        <h3 id="run-log-title" className="text-[13.5px] font-semibold">
-          What the steps covered
-        </h3>
-        <p className={cn("flex items-center gap-1.5 text-[12.5px]", all ? "text-[#5fe0d8]" : "text-tape-dim")}>
-          {all && <Check className="size-3.5" aria-hidden="true" />}
-          {all ? `All ${STEP_IDS.length} steps checked off` : `${done} of ${STEP_IDS.length} steps checked off`}
-        </p>
-      </div>
-      <ol className="font-mono text-[12.5px]">
-        {rows.map((r) => (
-          <li
-            key={r.what}
-            className="grid grid-cols-[8.5rem_minmax(0,1fr)] items-baseline gap-3 border-b border-tape-rule px-4 py-2.5 last:border-b-0 max-sm:grid-cols-1 max-sm:gap-1"
-          >
-            <span className={cn("flex items-center gap-2", r.tone)}>
-              {r.failed ? (
-                <span aria-hidden="true" className="w-1.5 text-center text-[11px] leading-none">✕</span>
-              ) : (
-                <span aria-hidden="true" className="size-1.5 shrink-0 translate-y-[-1px] rounded-full bg-current" />
-              )}
-              {r.cmd}
-            </span>
-            <span className="font-sans text-[14px] leading-snug text-tape-ink/90">{r.what}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
 
 interface Path {
   /** The command that starts it, or where it happens when there isn't one. */
@@ -86,7 +39,7 @@ const GROUPS: { title: string; paths: Path[] }[] = [
         cmd: "keploy mcp-install --editor <name>",
         command: true,
         title: "Ask your AI agent for tests",
-        body: <>Connect Keploy to Claude Code, Cursor, Antigravity or OpenCode and ask it to generate API tests.</>,
+        body: <>Connect Keploy to Claude Code, Cursor, the Antigravity CLI or OpenCode and ask it to generate API tests.</>,
         links: [{ label: "Connect your agent", slide: "ai-agents" }],
       },
       {
@@ -208,12 +161,11 @@ function PathItem({ p }: { p: Path }) {
   );
 }
 
-/** The last slide: what you did, then where each next step starts. */
+/** The last slide: where each next step starts. */
 export function NextSteps() {
   return (
     <div className="not-prose">
-      <RunLog />
-      <div className="mt-10 grid gap-x-10 gap-y-8 lg:grid-cols-3">
+      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-3">
         {GROUPS.map((g) => (
           <section key={g.title} aria-labelledby={`next-${g.title.toLowerCase().replaceAll(" ", "-")}`} className="border-t border-rule">
             <h3 id={`next-${g.title.toLowerCase().replaceAll(" ", "-")}`} className="pt-3 text-[14px] font-medium text-graphite">
@@ -228,8 +180,8 @@ export function NextSteps() {
         ))}
       </div>
       <p className="mt-10 border-t border-rule pt-4 text-[13.5px] leading-relaxed text-graphite">
-        Every Keploy terminal in this tutorial replays a recorded run of its exact commands; the AI agent sessions are
-        illustrations. The captures and generated files are in the{" "}
+        Every terminal in this tutorial replays a recorded run of its exact commands. The AI agent screens are recorded
+        from the real programs, with scripted replies. The captures and generated files are in the{" "}
         <a
           href={`${REPO}/tree/main/recordings`}
           target="_blank"

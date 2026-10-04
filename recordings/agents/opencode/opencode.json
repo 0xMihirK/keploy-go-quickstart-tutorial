@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "local/local-model",
+  "small_model": "local/local-model",
+  "autoupdate": false,
+  "share": "disabled",
+  "provider": {
+    "local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local",
+      "options": { "baseURL": "http://127.0.0.1:4010/v1", "apiKey": "local" },
+      "models": {
+        "local-model": { "name": "local-model", "tool_call": true, "limit": { "context": 128000, "output": 8192 } }
+      }
+    }
+  },
+  "mcp": {
+    "keploy": { "type": "local", "command": ["python3", "/opt/standin/mcp_keploy.py"], "enabled": true }
+  },
+  "permission": { "edit": "allow", "bash": "allow", "webfetch": "allow", "external_directory": "allow" }
+}

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  memo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, memo, useState } from "react";
 import { useInView } from "motion/react";
 import { Pause } from "lucide-react";
 
@@ -22,6 +16,7 @@ import { Prompt } from "./prompt";
 import { cn } from "@/lib/utils";
 import { usePageVisible } from "@/lib/page-visible";
 import { LoopButton } from "./loop-button";
+import { ScreenView } from "./screen-view";
 
 export { LoopButton, usePageVisible };
 
@@ -29,11 +24,13 @@ export { LoopButton, usePageVisible };
 /* Shell state                                                         */
 /* ------------------------------------------------------------------ */
 
-type EntryKind = "cmd" | "out" | "note";
+type EntryKind = "cmd" | "out" | "note" | "screen";
 interface Entry {
   id: number;
   kind: EntryKind;
   text: string;
+  /** kind "screen": one frame of a full-screen program. */
+  screen?: { lines: string[]; cols: number; rows: number };
   cwd?: string;
 }
 
@@ -49,6 +46,8 @@ export interface Cmd {
   clear?: boolean;
   /** Window title from this command on (the program now in front). */
   title?: string;
+  /** Captured screen frames (public/runs/<name>.json) of a full-screen program. */
+  screen?: string;
   /** Working directory shown in the prompt for this command. */
   cwd?: string;
   /** Regex: pause streaming after the first matching line (e.g. "ready"). */
@@ -98,6 +97,8 @@ export function useShell() {
   const active = useRef(false);
   // The running command takes over the screen on its first line.
   const clearRef = useRef(false);
+  // Grid size of the full-screen program being replayed.
+  const grid = useRef({ cols: 80, rows: 24 });
 
   const push = useCallback((kind: EntryKind, text: string, cwd?: string) => {
     setEntries((e) => [...e, { id: nextId++, kind, text, cwd }]);
@@ -105,6 +106,11 @@ export function useShell() {
 
   const onLine = useCallback((line: RunLine, i: number) => {
     setProgress((i + 1) / Math.max(1, lines.current.length));
+    if (line.screen) {
+      const screen = { lines: line.screen, ...grid.current };
+      setEntries([{ id: nextId++, kind: "screen", text: "", screen }]);
+      return;
+    }
     setEntries((e) => {
       if (clearRef.current) {
         clearRef.current = false;
@@ -142,7 +148,8 @@ export function useShell() {
       try {
         await streamLines(all, pos.current, end, {
           onLine,
-          onWait: (secs, ms) => setWait(secs ? { secs, ms: ms / speedRef.current } : null),
+          onWait: (secs, ms) =>
+            setWait(secs ? { secs, ms: ms / speedRef.current } : null),
           signal: ctrl.signal,
           speed: speedRef.current,
           isPaused: () => heldRef.current,
@@ -178,7 +185,40 @@ export function useShell() {
       const ctrl = new AbortController();
       abort.current = ctrl;
       active.current = true;
-      if (c.run) {
+      if (c.screen) {
+        setRunning(true);
+        try {
+          const res = await fetch(`/runs/${c.screen}.json`);
+          if (!res.ok) throw new Error(String(res.status));
+          const cap = (await res.json()) as {
+            cols: number;
+            rows: number;
+            frames: { d: number; lines: string[] }[];
+          };
+          if (ctrl.signal.aborted) return "aborted";
+          grid.current = { cols: cap.cols, rows: cap.rows };
+          // The program draws nothing for its first moment: keep a short beat
+          // of empty screen, not the whole wait.
+          const first = cap.frames.findIndex((f) => f.lines.some((l) => stripAnsi(l).trim()));
+          if (first >= 0)
+            cap.frames = [
+              { ...cap.frames[first], d: Math.min(cap.frames[first].d, 300) },
+              ...cap.frames.slice(first + 1),
+            ];
+          lines.current = cap.frames.map((f) => ({
+            d: f.d,
+            text: "",
+            screen: f.lines,
+          }));
+          setReal(null);
+        } catch {
+          if (ctrl.signal.aborted) return "aborted";
+          active.current = false;
+          push("note", "Couldn't load the recorded screen.");
+          setRunning(false);
+          return "aborted";
+        }
+      } else if (c.run) {
         setRunning(true);
         try {
           const run = await loadRun(c.run);
@@ -203,7 +243,11 @@ export function useShell() {
       pos.current = 0;
       setProgress(0);
       setOutcome(null);
-      const hold = c.holdAt ? new RegExp(c.holdAt) : c.run ? RUN_HOLDS[c.run] : undefined;
+      const hold = c.holdAt
+        ? new RegExp(c.holdAt)
+        : c.run
+          ? RUN_HOLDS[c.run]
+          : undefined;
       return stream(c.pauseAt ? new RegExp(c.pauseAt) : undefined, {
         ctrl,
         holdAt: demo ? hold : undefined,
@@ -271,7 +315,11 @@ export function outcomeMode(
   outcome: "pass" | "fail" | null,
   mode: TerminalMode | undefined,
 ): TerminalMode {
-  return outcome === "pass" ? "passed" : outcome === "fail" ? "failed" : (mode ?? null);
+  return outcome === "pass"
+    ? "passed"
+    : outcome === "fail"
+      ? "failed"
+      : (mode ?? null);
 }
 
 /** Frame glow once Keploy reports a result. */
@@ -340,7 +388,11 @@ export function StatusBar({
         className={cn(
           "absolute -top-px left-0 h-px transition-[width,opacity] duration-500",
           running && !paused && !held ? "opacity-100" : "opacity-0",
-          outcome === "fail" ? "bg-record" : outcome === "pass" ? "bg-replay" : "bg-orange",
+          outcome === "fail"
+            ? "bg-record"
+            : outcome === "pass"
+              ? "bg-replay"
+              : "bg-orange",
         )}
         style={{ width: `${Math.round(progress * 100)}%` }}
       />
@@ -367,8 +419,18 @@ export function StatusBar({
           <span className="rec-pulse size-1.5 rounded-full bg-record" />
           <span>{pausedText ?? "Waiting…"}</span>
         </>
-      ) : (idleText ?? (outcome === "pass" ? "Finished: all tests passed." : outcome === "fail" ? "Finished: a test failed." : null)) ? (
-        <span>{idleText ?? (outcome === "pass" ? "Finished: all tests passed." : "Finished: a test failed.")}</span>
+      ) : (idleText ??
+        (outcome === "pass"
+          ? "Finished: all tests passed."
+          : outcome === "fail"
+            ? "Finished: a test failed."
+            : null)) ? (
+        <span>
+          {idleText ??
+            (outcome === "pass"
+              ? "Finished: all tests passed."
+              : "Finished: a test failed.")}
+        </span>
       ) : null}
       {real ? (
         <span className="ml-auto hidden shrink-0 sm:inline">
@@ -390,6 +452,8 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
       </AnimatedSpan>
     );
   }
+  if (entry.kind === "screen" && entry.screen)
+    return <ScreenView {...entry.screen} />;
   if (entry.kind === "note") {
     return (
       <AnimatedSpan className="my-1 border-l-2 border-orange pl-2 text-[#ffb98a]">
@@ -410,12 +474,18 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   // overlong line wraps under its own indent; narrow terminals shrink the indent.
   if (plain === entry.text && /^[╭╰]─+[╮╯]$/.test(plain)) {
     return (
-      <div className="max-w-full overflow-hidden whitespace-pre text-tape-dim" style={{ fontSize: fitFont(BOX_COLS, 9) }}>
+      <div
+        className="max-w-full overflow-hidden whitespace-pre text-tape-dim"
+        style={{ fontSize: fitFont(BOX_COLS, 9) }}
+      >
         {plain}
       </div>
     );
   }
-  const gutter = plain === entry.text && /^│( +\S|\s*$)/.test(plain) && !plain.slice(1).includes("│");
+  const gutter =
+    plain === entry.text &&
+    /^│( +\S|\s*$)/.test(plain) &&
+    !plain.slice(1).includes("│");
   if (gutter) {
     const indent = plain.length - 1 - plain.slice(1).trimStart().length;
     return (
@@ -443,7 +513,8 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
   // A thin bar marks results so they stand out from the INFO logs.
   const accent = /Total test failed:\s*[1-9]/.test(plain)
     ? "shadow-[inset_2px_0_0_var(--record)]"
-    : /^\s*Total (tests|test passed|test failed|time taken):/.test(plain) || isSummary
+    : /^\s*Total (tests|test passed|test failed|time taken):/.test(plain) ||
+        isSummary
       ? "shadow-[inset_2px_0_0_var(--replay)]"
       : captured
         ? "shadow-[inset_2px_0_0_var(--orange)]"
@@ -454,7 +525,9 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
       data-fail={isFail ? "" : undefined}
       data-summary={isSummary ? "" : undefined}
       className={cn(
-        table ? "w-max max-w-full overflow-hidden whitespace-pre leading-[1.2]" : "whitespace-pre-wrap break-words",
+        table
+          ? "w-max max-w-full overflow-hidden whitespace-pre leading-[1.2]"
+          : "whitespace-pre-wrap break-words",
         accent && "-mx-2 px-2",
         accent,
         captured && "line-flash",
@@ -502,7 +575,10 @@ export function PromptLine({
     );
   }
   return (
-    <div aria-hidden="true" className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+    <div
+      aria-hidden="true"
+      className="whitespace-pre-wrap [overflow-wrap:anywhere]"
+    >
       {!busy && <Prompt cwd={cwd} />}
       <span className="caret inline-block h-[1.05em] w-[0.55em] translate-y-[0.15em] bg-tape-ink" />
     </div>
@@ -615,10 +691,7 @@ export function SimTerminal({
     if (!live || busy || typing || broken) return;
     const t = done
       ? setTimeout(onFinish ?? restart, shell.outcome ? 6500 : 4000)
-      : setTimeout(
-          () => setTyping(true),
-          step === 0 ? 700 : 1100,
-        );
+      : setTimeout(() => setTyping(true), step === 0 ? 700 : 1100);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restart/runCurrent read current state when they fire
   }, [live, busy, typing, broken, done, step, shell.outcome]);
@@ -646,19 +719,27 @@ export function SimTerminal({
         height={maxHeight}
         label={label}
         anchorKey={shell.outcome ? runs : 0}
-        scrollKey={shell.entries.length + (shell.entries.at(-1)?.text.length ?? 0)}
-        className={cn("transition-shadow duration-700", outcomeRing(shell.outcome))}
+        scrollKey={
+          shell.entries.length + (shell.entries.at(-1)?.text.length ?? 0)
+        }
+        className={cn(
+          "transition-shadow duration-700",
+          outcomeRing(shell.outcome),
+        )}
         footer={
-          <PromptLine
-            cwd={promptCwd}
-            // An agent's screen stays up after its session: just its cursor.
-            busy={busy || (done && !!commands.at(-1)?.clear)}
-            command={typing ? current?.cmd : undefined}
-            onTyped={() => {
-              setTyping(false);
-              if (current) void runCurrent();
-            }}
-          />
+          // A full-screen program owns the whole window: no shell prompt under it.
+          shell.entries[0]?.kind === "screen" ? undefined : (
+            <PromptLine
+              cwd={promptCwd}
+              // An agent's screen stays up after its session: just its cursor.
+              busy={busy || (done && !!commands.at(-1)?.clear)}
+              command={typing ? current?.cmd : undefined}
+              onTyped={() => {
+                setTyping(false);
+                if (current) void runCurrent();
+              }}
+            />
+          )
         }
         statusBar={<StatusBar shell={shell} userPaused={!playing} />}
       >
