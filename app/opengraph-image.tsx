@@ -94,6 +94,7 @@ export default async function Image() {
         </div>
       </div>
     ),
-    { ...size, fonts },
+    // An empty list would replace the renderer's built-in font, so pass none when the download failed.
+    { ...size, ...(fonts.length ? { fonts } : {}) },
   );
 }

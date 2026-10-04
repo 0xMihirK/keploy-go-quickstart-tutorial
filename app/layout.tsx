@@ -3,6 +3,7 @@ import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 
 import { Providers } from "@/components/providers";
 import { Header } from "@/components/docs/chrome";
+import { GlyphTide } from "@/components/ui/background-ascii-plasma";
 import { DeckController, DeckFooter } from "@/components/docs/slides";
 import { startSlideCss, startSlideScript } from "@/lib/slides-data";
 import "./globals.css";
@@ -66,6 +67,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             Skip to content
           </a>
           <Header />
+          {/* One ASCII plasma field behind every slide: fixed to the window,
+              faint, and faded out in the middle where the content sits. The
+              header and footer cover its edges. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed inset-0 -z-10 opacity-[0.07] [mask-image:radial-gradient(ellipse_at_center,transparent_25%,black_80%)] dark:opacity-[0.13]"
+          >
+            <GlyphTide />
+          </div>
           <main
             id="content"
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain tall:overflow-hidden"

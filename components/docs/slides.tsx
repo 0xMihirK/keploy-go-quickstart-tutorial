@@ -24,7 +24,6 @@ import {
   type SlideGroup,
 } from "@/lib/slides";
 import { cn } from "@/lib/utils";
-import { GlyphTide } from "./lazy";
 import { useReducedMotion } from "@/lib/reduced-motion";
 
 /* ---------------------------------------------------------------------- */
@@ -99,18 +98,8 @@ export function Slide({
         data-slide={id}
         data-active={active ? "" : undefined}
         aria-labelledby={`${id}-title`}
-        className="relative isolate tall:h-full"
+        className="tall:h-full"
       >
-        {/* The intro alone gets the ASCII plasma: faint, and faded out under
-            the content in the middle so it frames the slide. */}
-        {id === "overview" && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-1/2 -z-10 w-screen -translate-x-1/2 overflow-hidden opacity-[0.09] [mask-image:radial-gradient(ellipse_at_center,transparent_25%,black_80%)] dark:opacity-[0.16]"
-          >
-            <GlyphTide className="pointer-events-auto" />
-          </div>
-        )}
         <motion.div
           initial={false}
           animate={fade ? { opacity: [0, 1], x: [dir * 24, 0] } : { opacity: 1, x: 0 }}

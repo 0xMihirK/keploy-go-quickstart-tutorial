@@ -314,8 +314,10 @@ export function GlyphTide({ cellSize = 12, className = "" }: GlyphTideProps) {
     // display (a hidden slide) resizes it without any window resize.
     const ro = new ResizeObserver(onResize);
     ro.observe(canvas);
-    canvas.addEventListener("pointermove", onPointer);
-    canvas.addEventListener("pointerleave", onLeave);
+    // The field sits behind the page's content, which would swallow the
+    // canvas's own pointer events, so follow the pointer on the window.
+    window.addEventListener("pointermove", onPointer);
+    document.documentElement.addEventListener("pointerleave", onLeave);
     document.addEventListener("visibilitychange", onVis);
 
     return () => {
@@ -324,8 +326,8 @@ export function GlyphTide({ cellSize = 12, className = "" }: GlyphTideProps) {
       if (resizeTimer) clearTimeout(resizeTimer);
       mo.disconnect();
       ro.disconnect();
-      canvas.removeEventListener("pointermove", onPointer);
-      canvas.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("pointermove", onPointer);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [cellSize]);
