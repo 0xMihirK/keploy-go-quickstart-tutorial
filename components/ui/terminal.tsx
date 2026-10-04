@@ -511,7 +511,7 @@ export const Terminal = ({
     <div
       ref={containerRef}
       className={cn(
-        "z-0 w-full min-w-0 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_40px_-24px_rgba(8,10,14,0.55)]",
+        "@container z-0 w-full min-w-0 overflow-hidden rounded-xl border border-tape-rule bg-tape text-tape-ink shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_20px_40px_-24px_rgba(8,10,14,0.55)]",
         className,
       )}
     >
@@ -541,7 +541,9 @@ export const Terminal = ({
         // Focusable so keyboard readers can scroll back through the output.
         tabIndex={0}
         className={cn(
-          "relative overflow-auto px-4 py-3.5 font-term text-[12.5px] leading-[1.6] outline-none focus-visible:ring-2 focus-visible:ring-orange/60 focus-visible:ring-inset",
+          // Text scales with the window (about 80 columns across), so a wider or
+          // narrower column after dragging the divider resizes the output too.
+          "relative overflow-auto px-4 py-3.5 font-term text-[clamp(11px,calc(100cqw/52),16px)] leading-[1.6] outline-none focus-visible:ring-2 focus-visible:ring-orange/60 focus-visible:ring-inset",
           bodyClassName,
         )}
         style={height ? { height } : { maxHeight }}

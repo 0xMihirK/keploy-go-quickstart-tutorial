@@ -385,7 +385,13 @@ export const EntryLine = memo(function EntryLine({ entry }: { entry: Entry }) {
       </AnimatedSpan>
     );
   }
-  if (isBlockArt(entry.text)) return <BlockArt text={entry.text} />;
+  // The banner is a picture: it shrinks to fit a narrow terminal instead of overflowing.
+  if (isBlockArt(entry.text))
+    return (
+      <div style={{ fontSize: fitFont(stripAnsi(entry.text).length, 5) }}>
+        <BlockArt text={entry.text} />
+      </div>
+    );
   const plain = stripAnsi(entry.text);
   // The installer's left-gutter box: "│" plus Keploy's own indent. The text keeps
   // its column (so continuation lines sit under the line they continue) and an
